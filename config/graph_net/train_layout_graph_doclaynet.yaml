@@ -1,0 +1,37 @@
+model:
+  model_path:
+  class_list: ['Text', 'Title', 'Picture', 'Table', 'List-item', 'Page-header', 'Page-footer', 'Section-header', 'Footnote','Caption','Formula']
+  class_map: {}
+trainer:
+  loss:
+    class_weight_flag: true
+    node_weight:
+    edge_weight:
+    loss_weight: -1
+  save_epoch_freq: 1
+  save_step_freq: 5000
+  display_freq: 200
+  epochs: 10
+  eval_display_freq: 200
+  eval_print_freq: 200
+  print_freq: 200
+  scheduler:
+    scheduler_type: stairs
+    warmup_epochs: 1
+  save_dir: doclaynet/
+  tensorboard_dir: doclaynet/tensorboard/
+datasets:
+  train:
+    dataset:
+      data_root:
+        - /open-dataset/OD-layout/DocLayNet_core
+      label_root:
+        - /open-dataset/OD-layout/DocLayNet_core_graph_labels/train
+    collate_fn:
+      aug_flag: false
+  eval:
+    dataset:
+      data_root:
+        - /open-dataset/OD-layout/DocLayNet_core
+      label_root:
+        - /open-dataset/OD-layout/DocLayNet_core_graph_labels/val

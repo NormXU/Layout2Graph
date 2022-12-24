@@ -1,0 +1,49 @@
+name: base
+model:
+  type: BaseModel
+  mixed_precision_flag: true
+  quantization_type: ''
+predictor:
+  img_paths:
+  img_dirs:
+  save_dir:
+  do_visualize: true
+evaluator:
+  save_dir: /data/data/cache
+trainer:
+  loss:
+    type: CrossEntropyLoss
+  grad_clip:
+  optimizer:
+    optimizer_type: "sgd"
+    lr: 0.01 # lr0 initial learning rate (SGD=1E-2 Adam=1E-3)
+    weight_decay: 0.0005  # optimizer weight decay 5e-4
+    momentum: 0.937  # SGD momentum/Adam beta1
+  scheduler:
+    scheduler_type: "linear"
+    warmup_epochs: 1
+  epochs: 100
+  save_dir:
+  tensorboard_dir:
+  save_epoch_freq: 1
+  save_step_freq: 0
+  print_freq: 50
+  eval_print_freq: 20
+  display_freq: 200
+  eval_display_freq: 20
+  grad_accumulate: 1 # gradient accumulation
+  save_best: false
+datasets:
+  train:
+    dataset:
+      type: BaseDataset
+      data_root:
+        -
+    num_workers: 8
+    batch_size: 64
+    collate_fn:
+      type: baseCollateFn
+  eval:
+    dataset:
+      data_root:
+        -

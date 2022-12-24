@@ -1,0 +1,21 @@
+base: config/graph_net/train_layout_graph_doclaynet.yaml
+model:
+  model_path:
+  class_list: ['text', 'title', 'figure', 'table', 'list']
+  class_map: {}
+trainer:
+  save_dir: publaynet/
+  tensorboard_dir: publaynet/tensorboard/
+datasets:
+  train:
+    dataset:
+      data_root:
+        - /open-dataset/OD-layout/publaynet/train
+      label_root:
+        - /open-dataset/OD-layout/publaynet_entity_graph_labels/train
+  eval:
+    dataset:
+      data_root:
+        - /open-dataset/OD-layout/publaynet/val
+      label_root:
+        - /open-dataset/OD-layout/publaynet_entity_graph_labels/val

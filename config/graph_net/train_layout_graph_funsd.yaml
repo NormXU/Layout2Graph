@@ -1,0 +1,73 @@
+model:
+  model_path:
+  mixed_precision_flag: false
+  k_nearest_num: 10
+  text_hidden_dim:
+  encode_text_type: none
+  graph_type: DGCNN
+  graph_layer_num: 1
+  norm_box_flag: true
+  cnn_backbone_type: resnet50 #resnet18/resnet50/fasterrcnn_resnet50_fpn_v2
+  gnn_res_flag: true
+  relation_flag: true
+  rope_flag: false
+  polar_flag: false
+  fc_flag: true
+  node_class_flag: true
+  height: 800
+  width: 608
+  class_list: ['question', 'answer', 'header', 'other']
+  class_map: {}
+trainer:
+  optimizer:
+    optimizer_type: "adam"
+    lr: 1e-4
+  scheduler:
+    scheduler_type: "stairs"
+    warmup_epochs: 10
+  loss:
+    type: GraphLayoutLoss
+    edge_type: CrossEntropyLoss
+    node_weight: [1.31, 1.0, 6.45, 2.62]
+    edge_weight: [1.0, 1.8]
+#    edge_type: FocalLoss
+    edge_contrastive_loss_flag: false
+    node_contrastive_loss_flag: false
+    class_weight_flag: false
+    gamma: 1 #focal loss
+    alpha: 0.13
+    size_average: true #focal loss
+    loss_weight: 1
+  metric:
+    type: GraphLayoutMetric
+  epochs: 60
+  save_dir: funsd_word/
+  tensorboard_dir: funsd_word/tensorboard/
+  save_epoch_freq: 1
+  save_step_freq: 0
+  print_freq: 20
+  eval_print_freq: 20
+  display_freq: 20
+datasets:
+  train:
+    dataset:
+      type: GraphLayoutDataset
+      crop_img_flag: false
+      data_root:
+        - /open-dataset/OD-layout/FUNSD/training_data
+      label_root:
+        - /open-dataset/OD-layout/FUNSD_word_graph_labels/training_data
+    num_workers: 0
+    batch_size: 2
+    collate_fn:
+      type: GraphCollateFn
+      debug_cell: false
+      pad_flag: true
+  eval:
+    dataset:
+      data_root:
+        - /open-dataset/OD-layout/FUNSD/testing_data
+      label_root:
+        - /open-dataset/OD-layout/FUNSD_word_graph_labels/testing_data
+    collate_fn:
+      debug_cell: false
