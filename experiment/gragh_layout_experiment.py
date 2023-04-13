@@ -19,7 +19,7 @@ from base.common_util import get_file_path_list
 from base.driver import logger
 from experiment.base_experiment import BaseExperiment
 from metrics.meter import AverageMeter
-from mydatasets.gragh_net.table_dataset import graph_get_pad_transform, variety_cell, graph_get_resize_transform
+from mydatasets.gragh_net.graph_collate import graph_get_pad_transform, variety_cell, graph_get_resize_transform
 from post_process import get_post_processor
 
 

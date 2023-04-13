@@ -235,7 +235,7 @@ class TestGenerator(unittest.TestCase):
                 with open(out_path_entity, "w", encoding='utf-8') as f:
                     json.dump({'img_data_list': result_data_entity}, f, ensure_ascii=False, indent=2)
 
-    def test_preprocess_publaynet(self):
+    def test_convert_Publaynet_2_graph(self):
         from functools import cmp_to_key
 
         def cmp_text_chunk(item1, item2):
