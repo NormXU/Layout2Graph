@@ -12,6 +12,83 @@ from torchvision import transforms
 import numpy as np
 
 
+class GraphCollateFn(object):
+
+    def __init__(self, height=400, width=400, **kwargs):
+        self.height = height
+        self.width = width
+        self.cut_percent = kwargs['cut_percent']
+        self.variety_percent = kwargs['variety_percent']
+        self.delete_percent = kwargs['delete_percent']
+        self.cut_ratio = kwargs['cut_ratio']
+        self.variety_ratio = kwargs['variety_ratio']
+        self.delete_ratio = kwargs['delete_ratio']
+        self.debug_cell = kwargs['debug_cell']
+        self.aug_flag = kwargs['aug_flag']
+        self.pad_flag = kwargs['pad_flag']
+
+    def __call__(self, batch_data):
+        images = [batch['image'] for batch in batch_data]
+        images_name = [batch['image_name'] for batch in batch_data]
+        cell_boxes = [list(batch['cell_box']) for batch in batch_data]
+        targets = [list(batch['target']) for batch in batch_data]
+        texts = [list(batch['text']) for batch in batch_data]
+        encode_texts = [list(batch['encode_text']) for batch in batch_data]
+
+        images, cell_boxes, padding_edge = self._get_transform(images, cell_boxes)
+        if self.aug_flag:
+            cell_boxes, targets, texts = variety_cell(images, cell_boxes, targets, texts, padding_edge,
+                                                      self.cut_percent, self.variety_percent, self.delete_percent,
+                                                      self.cut_ratio, self.variety_ratio, self.delete_ratio)
+        if self.debug_cell:
+            self._debug_component(images, cell_boxes)
+        cell_boxes = [torch.from_numpy(np.array(cell_box)).to(torch.float32) for cell_box in cell_boxes]
+        batched_imgs = torch.stack(images, 0)
+        return {
+            'images': batched_imgs,
+            'images_name': images_name,
+            'cell_boxes': cell_boxes,
+            'targets': targets,
+            'texts': texts,
+            'encode_texts': encode_texts,
+        }
+
+    def _debug_component(self, images, cell_boxes):
+        for idx, image in enumerate(images):
+            image = (image.detach().cpu().numpy() + 1) * 255 / 2
+            debug_img = cv2.UMat(image.transpose(1, 2, 0).astype(np.uint8))
+            for cell_box in cell_boxes[idx]:
+                width = int(cell_box[2] - cell_box[0])
+                height = int(cell_box[3] - cell_box[1])
+                lu_points = (int(cell_box[0] + width // 3), int(cell_box[1]) + height // 3)
+                rd_points = (int(cell_box[2]) - width // 3, int(cell_box[3]) - height // 3)
+                color = (np.random.randint(0, 255), np.random.randint(0, 255), np.random.randint(0, 255))
+                cv2.rectangle(debug_img, lu_points, rd_points, color, -1)
+            cv2.imwrite("/home/debug_{}.png".format(idx), debug_img)
+
+    def _get_transform(self, images, cell_boxes):
+        transform_images, transform_cell_boxes, padding_edge = [], [], []
+        for i, image in enumerate(images):
+            assert len(cell_boxes[i]) > 0
+            if self.pad_flag:
+                image, cell_box, padding = graph_get_pad_transform(image, cell_boxes[i], self.height, self.width)
+            else:
+                image, cell_box, padding = graph_get_resize_transform(image, cell_boxes[i], self.height, self.width)
+            transform_images.append(image)
+            transform_cell_boxes.append(cell_box)
+            padding_edge.append(padding)
+        return transform_images, transform_cell_boxes, padding_edge
+
+
+class GraphEntityCollateFn(GraphCollateFn):
+
+    def __call__(self, batch_data):
+        linkings = [list(batch['linking']) for batch in batch_data]
+        result = super().__call__(batch_data)
+        result['linkings'] = linkings
+        return result
+
+
 def graph_get_pad_transform(image, cell_box, height, width):
     tb_w, tb_h = image.size
     img_transform = []
