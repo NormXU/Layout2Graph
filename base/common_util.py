@@ -152,4 +152,9 @@ def init_experiment_config(config_file, experiment_name):
                                                       'base.yaml'))
     merged_config = experiment_base_config.copy()
     merge_config(input_config, merged_config)
-    return merged_config
+
+    base_config = read_config(os.path.join(PROJECT_ROOT_PATH, 'config',
+                                                      'base.yaml'))
+    final_merged_config = base_config.copy()
+    merge_config(merged_config, final_merged_config)
+    return final_merged_config

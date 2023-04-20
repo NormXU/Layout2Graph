@@ -1,8 +1,10 @@
+base: config/graph_net/train_layout_graph.yaml
 model:
   model_path:
   class_list: ['Text', 'Title', 'Picture', 'Table', 'List-item', 'Page-header', 'Page-footer', 'Section-header', 'Footnote','Caption','Formula']
   class_map: {}
 trainer:
+  grad_clip: 5
   loss:
     class_weight_flag: true
     node_weight:

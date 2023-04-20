@@ -12,6 +12,7 @@ class FocalLoss(nn.Module):
         self.gamma = gamma
         self.alpha = alpha
         if isinstance(alpha, (float, int)):
+            # 注意：我们这的alpha是对应于class-0的，和论文中的正好相反，论文中的alpha对应于class-1
             self.alpha = torch.Tensor([alpha, 1 - alpha])
         elif isinstance(alpha, list):
             self.alpha = torch.Tensor(alpha)

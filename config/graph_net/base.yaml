@@ -1,103 +1,95 @@
+name: base
 model:
-  model_path: 
-  type: GraphLayoutNet
-  mixed_precision_flag: false
+  type: BaseModel
+  mixed_precision: 'no'
   focal_loss_flag: true
   max_pair_num: 50000
   cnn_emb_feat: 512
   box_emb_feat: 256
   gcn_out_feat: 512
   text_emd_feat: 0
-  num_polar_bins: 8
-  polar_emb_feat: 6
-  #  vocab_path: 
-  rope_max_length: 32
-  rope_emb_feat: 512
+  vocab_path: #'/open-dataset/charset/charset_document_v1.txt' #给了这个值就表示加入text embedding
   k_nearest_num: 10
+  sampling_strategy: Custom
   text_hidden_dim:
   encode_text_type: none
-  graph_type: DGCNN   #DGCNN/GravNet
+  in_channels: 1024
+  graph_type: DGCNN   #GCN/DGCNN/GravNet/GarNet/GatNet/GatV2Net
   graph_layer_num: 1
   norm_box_flag: true
   cnn_flag: true
   cnn_backbone_type: resnet18 #resnet18/resnet50/fasterrcnn_resnet50_fpn_v2
   gnn_res_flag: true
   relation_flag: true
+  
   rope_flag: false
+  rope_max_length: 32
+  rope_emb_feat: 512
+
   polar_flag: false
+  num_polar_bins: 8
+  polar_emb_feat: 6
+
   fc_flag: true
   node_class_flag: true
   height: 400
   width: 400
-  class_list: ['Text', 'Title', 'Figure', 'Table', 'List', 'Header', 'Footer']
+  class_list: []
   class_map: {}
-
 predictor:
   img_paths:
   img_label_paths:
+  img_dirs:
   img_input_dirs:
-    - /open-dataset/OD-layout/publaynet/val
   img_label_dirs:
-    - /open-dataset/OD-layout/publaynet_entity_graph_labels/val
-#  img_input_dirs:
-#    - /open-dataset/OD-layout/DocLayNet_core
-#  img_label_dirs:
-#    - /open-dataset/OD-layout/DocLayNet_core_graph_labels/val
-  save_dir:
+  save_dir: /data/data/cache
   aug_flag: false
   do_visualize: false
-  save_coco_result: true
+  save_coco_result: false
   pad_flag: false
   post_processor:
     type: DefaultPostProcessor
     delete_dif_cls: false
+    label_priority_list: []
     pair_score_threshold: 0.55
+    delete_pair_flag: true
+    combine_threshold: 0.5
+evaluator:
+  save_dir: /data/data/cache
 trainer:
+  loss:
+    type: CrossEntropyLoss
+  grad_clip:
   optimizer:
     optimizer_type: "adam"
-    lr: 1e-5
+    lr: 1e-4 # lr0 initial learning rate (SGD=1E-2 Adam=1E-3)
+    weight_decay: 0.0005  # optimizer weight decay 5e-4
+    momentum: 0.937  # SGD momentum/Adam beta1
   scheduler:
     scheduler_type: "stairs"
     warmup_epochs: 2
-  loss:
-    type: GraphLayoutLoss
-    edge_type: CrossEntropyLoss
-    edge_contrastive_loss_flag: false
-    node_contrastive_loss_flag: false
-    class_weight_flag: true
-    node_weight: 
-    edge_weight: 
-    #    edge_type: FocalLoss
-    gamma: 2 #focal loss
-    alpha:
-    size_average: true #focal loss
-    loss_weight: 1
-  metric:
-    type: GraphLayoutMetric
-  epochs: 20
-  save_dir: /tmp/
-  tensorboard_dir: /tmp/
+  epochs: 100
+  save_dir:
+  tensorboard_dir:
   save_epoch_freq: 1
   save_step_freq: 0
-  print_freq: 10
-  eval_print_freq: 10
-  display_freq: 20
+  print_freq: 50
+  eval_print_freq: 20
+  display_freq: 200
+  eval_display_freq: 20
+  grad_accumulate: 1 # gradient accumulation
+  save_best: false
 datasets:
   train:
     dataset:
-      type: GraphLayoutDataset
-      crop_img_flag: false
+      type: BaseDataset
       data_root:
-      label_root:
-    num_workers: 0
-    batch_size: 4
+        -
+    num_workers: 8
+    batch_size: 64
     collate_fn:
-      type: GraphCollateFn
-      debug_cell: false
-      pad_flag: false
+      type: baseCollateFn
   eval:
     dataset:
       data_root:
-      label_root:
-    collate_fn:
-      debug_cell: false
+        -

@@ -26,6 +26,8 @@ do
           echo "-g, --gpu specify to use gpu"
           echo "-bt, --buildtype specify to created image for codebuild. Possible values: production, dev, codebuild."
           echo "-cv, --cudaversion specify to cuda version to use"
+          echo "-torch, --torch_version specify pytorch version for docker image"
+          echo "-torchvision, --torchvision_version specify pytorch vision version for docker image"
           echo "-t, --tag specify tag name for docker image"
           echo "-s, --suffix specify tag name for docker image"
           echo "-p, --push push image or not"
@@ -56,25 +58,34 @@ do
           ;;
         -cv|--cudaversion)
           CUDA_VERSION="$2"
-          if [ $CUDA_VERSION == "cu111" ];
+          if [ $CUDA_VERSION == "cu120" ];
           then
-            BASE_IMAGE="nvidia/cuda:11.1-cudnn8-runtime-ubuntu18.04"
-          elif [ $CUDA_VERSION == "cu113" ];
+            BASE_IMAGE="nvidia/cuda:12.0.0-runtime-ubuntu22.04"
+          elif [ $CUDA_VERSION == "cu116" ];
           then
-            BASE_IMAGE="nvidia/cuda:11.3.0-cudnn8-runtime-ubuntu18.04"
+            if [ $BUILD_TYPE == "dev" ];
+            then
+              BASE_IMAGE="nvidia/cuda:11.6.0-cudnn8-devel-ubuntu18.04"
+            else
+              BASE_IMAGE="nvidia/cuda:11.6.0-cudnn8-runtime-ubuntu18.04"
+            fi
           elif [ $CUDA_VERSION == "cu102" ];
           then
             BASE_IMAGE="nvidia/cuda:10.2-cudnn7-runtime-ubuntu18.04"
-          elif [ $CUDA_VERSION == "cu101" ]
-          then
-            BASE_IMAGE="nvidia/cuda:10.1-cudnn7-runtime-ubuntu18.04"
-          elif [ $CUDA_VERSION == "cu92" ];
-          then
-            BASE_IMAGE="nvidia/cuda:9.2-cudnn7-runtime-ubuntu18.04"
           else
             echo "CUDA version not supported"
             exit 1
           fi
+          shift
+          shift
+          ;;
+        -torch| --torch_version)
+          TORCH_VER="$2"
+          shift
+          shift
+          ;;
+        -torchvision| --torchvision_version)
+          TORCH_VISION_VER="$2"
           shift
           shift
           ;;
@@ -111,21 +122,28 @@ echo "DOCKER_TAG:${DOCKER_TAG}"
 echo "MACHINE:${MACHINE}"
 echo "CUDA_VERSION:${CUDA_VERSION}"
 echo "BASE_IMAGE:${BASE_IMAGE}"
+echo "TORCH_VER:${TORCH_VER}"
+echo "TORCH_VISION_VER:${TORCH_VISION_VER}"
+
 
 echo "start build image"
 if [ $BUILD_TYPE == "production" ]
 then
   DOCKER_BUILDKIT=1 docker build --file docker/$BRANCH_NAME.Dockerfile -t $DOCKER_TAG --build-arg BASE_IMAGE=$BASE_IMAGE  \
-     --build-arg CUDA_VERSION=$CUDA_VERSION .
+     --build-arg CUDA_VERSION=$CUDA_VERSION --build-arg TORCH_VER=$TORCH_VER --build-arg TORCH_VISION_VER=$TORCH_VISION_VER .
 else
   DOCKER_BUILDKIT=1 docker build --file docker/dev.Dockerfile -t $DOCKER_TAG --build-arg BASE_IMAGE=$BASE_IMAGE  \
-     --build-arg CUDA_VERSION=$CUDA_VERSION .
+     --build-arg CUDA_VERSION=$CUDA_VERSION --build-arg TORCH_VER=$TORCH_VER --build-arg TORCH_VISION_VER=$TORCH_VISION_VER .
 fi
 
 image_build_status=$?
 echo "image_build_status:${image_build_status}"
 if [ "${image_build_status}" != "0" ];then
   error_exit "docker build failed"
+fi
+
+if [ $CICD_STAGE == "test" ]; then
+   sh ./docker/run_test_in_docker.sh
 fi
 
 if ${PUSH_IMAGE}

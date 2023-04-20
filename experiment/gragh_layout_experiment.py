@@ -25,75 +25,21 @@ from post_process import get_post_processor
 
 class GraphLayoutExperiment(BaseExperiment):
 
-    def __init__(self, config, local_world_size=None, local_rank=None):
-        super(GraphLayoutExperiment, self).__init__(config, local_world_size=local_world_size, local_rank=local_rank)
+    def __init__(self, config):
+        super(GraphLayoutExperiment, self).__init__(config)
         self.args.trainer.best_eval_result = [-1, -1]
 
-    # config的联动关系可以写在这个函数中
-    def _init_config(self, config):
-        config['model']['num_classes'] = len(config['model']['class_list'])
-        if 'datasets' in config:
-            if 'encode_text_type' in config['model']:
-                config['datasets']['train']['dataset']['encode_text_type'] = config['model']['encode_text_type']
-            config['datasets']['train']['collate_fn']['width'] = config['model']['width']
-            config['datasets']['eval']['collate_fn']['width'] = config['model']['width']
-            config['datasets']['train']['collate_fn']['height'] = config['model']['height']
-            config['datasets']['eval']['collate_fn']['height'] = config['model']['height']
-        if 'predictor' in config:
-            config['predictor']['width'] = config['model']['width']
-            config['predictor']['height'] = config['model']['height']
-        if 'trainer' in config:
-            config['trainer']['metric']['num_classes'] = config['model']['num_classes']
-            if config['trainer']['loss']['class_weight_flag']:
-                config['trainer']['loss']['num_classes'] = config['model']['num_classes']
-        return super()._init_config(config)
-
-    def init_model(self, config):
-        model_args = config["model"]
-        vocab_path = model_args.get("vocab_path", None)
-        self.label_converter = None
-        if vocab_path:
-            with open(vocab_path, 'r') as f:
-                charsets = f.read().strip('\n')
-            self.label_converter = TableGraphLabelConverter(alphabet=charsets)
-            config['model']['vocab_size'] = len(self.label_converter.alphabet)
-        super().init_model(config)
-
-    def load_model(self, checkpoint_path, strict=True, **kwargs):
-        if os.path.exists(checkpoint_path) and os.path.isfile(checkpoint_path):
-            state_dict = torch.load(checkpoint_path, map_location=torch.device("cpu"))
-            try:
-                self.model.load_state_dict(state_dict, strict=strict)
-            except:
-                origin_num_classes = len(state_dict['cls_node.0.weight'])
-                state_dict['cls_node.0.weight'] = state_dict['cls_node.0.weight'][:self.model.num_classes]
-                state_dict['cls_node.0.bias'] = state_dict['cls_node.0.bias'][:self.model.num_classes]
-
-                state_dict['linear_cell.0.weight'] = torch.cat([
-                    state_dict['linear_cell.0.weight'][:, :-origin_num_classes * 2],
-                    state_dict['linear_cell.0.weight'][:, -origin_num_classes * 2:-origin_num_classes * 2 + self.model.num_classes],\
-                    state_dict['linear_cell.0.weight'][:, -origin_num_classes:-origin_num_classes + self.model.num_classes]],\
-                                                               dim=1)
-                logger.warning('load model: class num dont match:{} vs {}!!!'.format(
-                    origin_num_classes, self.model.num_classes))
-                self.model.load_state_dict(state_dict, strict=strict)
-            logger.info("success load model:{}".format(checkpoint_path))
-
-    def predict(self):
+    def predict(self, **kwargs):
         self.model.eval()
         with torch.no_grad():
             self.args.predictor.img_label_paths = [] if self.args.predictor.img_label_paths is None else self.args.predictor.img_label_paths
             if self.args.predictor.img_label_dirs is not None:
                 for i, img_label_dir in enumerate(self.args.predictor.img_label_dirs):
-                    label_path_list = get_file_path_list(img_label_dir, ['json'])
-                    self.args.predictor.img_label_paths.extend(label_path_list)
-                    # self.args.predictor.img_label_paths.extend([
-                    #     label_path.replace(img_label_dir, self.args.predictor.img_input_dirs[i]).replace(
-                    #         '/graph_labels/', '/ocr_results/') for label_path in label_path_list
-                    # ])
-                    self.args.predictor.img_paths.extend([
-                        label_path.replace(img_label_dir, self.args.predictor.img_input_dirs[i]).replace('/graph_labels/', '/ocr_results_images/').\
-                            replace('/ocr_results/', '/ocr_results_images/').replace('.json', '.jpg') for label_path in label_path_list
+                    img_path_list = get_file_path_list(self.args.predictor.img_input_dirs[i], ['png'])
+                    self.args.predictor.img_paths.extend(img_path_list)
+                    self.args.predictor.img_label_paths.extend([
+                        label_path.replace(self.args.predictor.img_input_dirs[i], img_label_dir).split('_')[0]+'.json' for label_path in
+                        img_path_list
                     ])
             image_count, instance_count = 0, 0
             if self.args.predictor.save_coco_result:
@@ -112,9 +58,7 @@ class GraphLayoutExperiment(BaseExperiment):
                             'name': label
                         } for i, label in enumerate(self.args.model.class_list)]
                     }
-            for i, img_path in tqdm(enumerate(self.args.predictor.img_paths[image_count:])):
-                # if os.path.basename(img_path) not in []:
-                #     continue
+            for i, img_path in enumerate(tqdm(self.args.predictor.img_paths[image_count:])):
                 if not os.path.exists(img_path):
                     img_path = img_path.replace('/ocr_results_images/', '/images/')
                 if not os.path.exists(img_path):
@@ -123,23 +67,13 @@ class GraphLayoutExperiment(BaseExperiment):
                 image = Image.open(img_path).convert("RGB")
                 with open(self.args.predictor.img_label_paths[i], 'r') as f:
                     json_data = json.load(f)
-                    if 'ocr_results' in self.args.predictor.img_label_paths[i]:
-                        label_data = json_data['img_data_list'][0]['text_info']
-                        cell_box, text = [], []
-                        for item in label_data:
-                            # TODO 可以过滤一些文本框不去预测
-                            if len(item['text_string']) > 0 and item['text_coord'][2] > item['text_coord'][0] and \
-                                    item['text_coord'][3] > item['text_coord'][1]:
-                                cell_box.append(item['text_coord'])
-                                text.append(item['text_string'])
-                    else:
-                        cell_box, text = [], []
-                        for item in json_data['img_data_list']:
-                            # TODO 可以过滤一些文本框不去预测
-                            if len(item['content']) > 0 and item['text_coor'][2] > item['text_coor'][0] and \
-                                    item['text_coor'][3] > item['text_coor'][1]:
-                                cell_box.append(item['text_coor'])
-                                text.append(item['content'])
+                    cell_box, text = [], []
+                    for item in json_data['cells']:
+                        # TODO 可以过滤一些文本框不去预测
+                        if len(item['bbox']) > 0 and item['bbox'][2] > 0 and \
+                                abs(item['bbox'][3]) > 0:
+                            cell_box.append([item['bbox'][0], item['bbox'][1]+item['bbox'][3], item['bbox'][0]+item['bbox'][2], item['bbox'][1]])
+                            text.append(item['text'])
                 if len(cell_box) == 0:
                     logger.warning('no cell in {}'.format(img_path))
                     continue
@@ -205,17 +139,26 @@ class GraphLayoutExperiment(BaseExperiment):
 
     def evaluate(self, **kwargs):
         global_eval_step = kwargs.get('global_eval_step', 0)
-        if self.args.model.mixed_precision_flag:
-            self.model.half()
-        self.model.eval()
+        eval_model = self.model
+        if eval_model.training and self.ema:
+            self.ema.update_attr(self.model, include=self.args.trainer.ema_include)
+            eval_model = self.ema.ema
+        if self.use_torch_amp:
+            eval_model.half()
+        eval_model.eval()
         batch_time = AverageMeter()
         loss_meter = AverageMeter()
         norm_meter = AverageMeter()
-        eval_metric = self._init_metric()  # 自己实现
+        eval_metric = self._init_metric()
+        simple_eval_flag = kwargs.get('simple_eval_flag', False)
+        if simple_eval_flag:
+            logger.info("run evaluation on a small dataset before start training")
         for i, batch in enumerate(self.eval_data_loader):
+            if simple_eval_flag and i > self.args.trainer.eval_print_freq:
+                break
             start = time.time()
             batch_size = self.args.datasets.train.batch_size
-            result = self._step_forward(batch, is_train=False)
+            result = self._step_forward(batch, is_train=False, eval_model=eval_model)
             loss_meter.update(result['loss'].item(), batch_size)
             norm_meter.update(0)
             batch_time.update(time.time() - start)
@@ -226,23 +169,28 @@ class GraphLayoutExperiment(BaseExperiment):
                 self._print_eval_log(global_eval_step, loss_meter, eval_metric)
             self._display_images(batch, result, global_step=global_eval_step, if_train=False)
         acc = self._print_eval_log(global_eval_step, loss_meter, eval_metric)
-        self.model.float()
+        eval_model.float()
         return {'acc': acc, 'global_eval_step': global_eval_step}
 
-    def _step_forward(self, batch, is_train=True, **kwargs):
+    def _step_forward(self, batch, is_train=True, eval_model=None, **kwargs):
+        model = eval_model if is_train is False and eval_model is not None else self.model
         images = batch["images"]
         targets = batch["targets"]
         cell_boxes = batch["cell_boxes"]
         linkings = batch.get("linkings")
+        cell_boxes = [cell_box.to(self.args.device.device_id) for cell_box in cell_boxes]
+        images = images.to(self.args.device.device_id)
         encode_texts = batch.get("encode_texts", None)
         if self.label_converter:
             texts = batch.get("texts", None)
             encode_texts = self.label_converter.encode(texts)
         if is_train:
-            outputs = self.model(images, cell_boxes, targets, encode_texts, linkings)
+            with self.precision_scope:
+                outputs = model(images, cell_boxes, targets, encode_texts, linkings)
         else:
-            with torch.no_grad():
-                outputs = self.model(images, cell_boxes, targets, encode_texts, linkings)
+            with self.precision_scope:
+                outputs = model(images, cell_boxes, targets, encode_texts, linkings)
+                # predictions, references = accelerator.gather_for_metrics((predictions, batch["label"]))
         cls_targets = []
         for target_list in targets:
             for target in target_list:
@@ -253,6 +201,58 @@ class GraphLayoutExperiment(BaseExperiment):
         cls_targets = torch.from_numpy(np.array(cls_targets)).to(self.args.device.device_id)
         losses = self.criterion(outputs, cls_targets)
         return {'loss': losses['loss'], 'outputs': outputs, 'cls_targets': cls_targets}
+
+    # config的联动关系可以写在这个函数中
+    def _init_config(self, config):
+        config['model']['num_classes'] = len(config['model']['class_list'])
+        if 'datasets' in config:
+            if 'encode_text_type' in config['model']:
+                config['datasets']['train']['dataset']['encode_text_type'] = config['model']['encode_text_type']
+            config['datasets']['train']['collate_fn']['width'] = config['model']['width']
+            config['datasets']['eval']['collate_fn']['width'] = config['model']['width']
+            config['datasets']['train']['collate_fn']['height'] = config['model']['height']
+            config['datasets']['eval']['collate_fn']['height'] = config['model']['height']
+        if 'predictor' in config:
+            config['predictor']['width'] = config['model']['width']
+            config['predictor']['height'] = config['model']['height']
+        if 'trainer' in config:
+            config['trainer']['metric']['num_classes'] = config['model']['num_classes']
+            if config['trainer']['loss']['class_weight_flag']:
+                config['trainer']['loss']['num_classes'] = config['model']['num_classes']
+        return super()._init_config(config)
+
+    def init_model(self, config):
+        model_args = config["model"]
+        vocab_path = model_args.get("vocab_path", None)
+        self.label_converter = None
+        if vocab_path:
+            with open(vocab_path, 'r') as f:
+                charsets = f.read().strip('\n')
+            self.label_converter = TableGraphLabelConverter(alphabet=charsets)
+            config['model']['vocab_size'] = len(self.label_converter.alphabet)
+        super().init_model(config)
+
+    def load_model(self, checkpoint_path, strict=True, **kwargs):
+        if os.path.exists(checkpoint_path) and os.path.isfile(checkpoint_path):
+            state_dict = torch.load(checkpoint_path, map_location=torch.device("cpu"))
+            try:
+                self.model.load_state_dict(state_dict, strict=strict)
+            except:
+                origin_num_classes = len(state_dict['cls_node.0.weight'])
+                state_dict['cls_node.0.weight'] = state_dict['cls_node.0.weight'][:self.model.num_classes]
+                state_dict['cls_node.0.bias'] = state_dict['cls_node.0.bias'][:self.model.num_classes]
+
+                state_dict['linear_cell.0.weight'] = torch.cat([
+                    state_dict['linear_cell.0.weight'][:, :-origin_num_classes * 2],
+                    state_dict['linear_cell.0.weight'][:,
+                    -origin_num_classes * 2:-origin_num_classes * 2 + self.model.num_classes], \
+                    state_dict['linear_cell.0.weight'][:,
+                    -origin_num_classes:-origin_num_classes + self.model.num_classes]], \
+                    dim=1)
+                logger.warning('load model: class num dont match:{} vs {}!!!'.format(
+                    origin_num_classes, self.model.num_classes))
+                self.model.load_state_dict(state_dict, strict=strict)
+            logger.info("success load model:{}".format(checkpoint_path))
 
     def _print_eval_log(self, global_step, loss_meter, eval_metric, **kwargs):
         evaluate_report = eval_metric.get_report()
@@ -283,18 +283,18 @@ class GraphLayoutExperiment(BaseExperiment):
                 self.writer.add_scalar("{}_train/step_loss".format(self.experiment_name), loss_meter.val, global_step)
                 self.writer.add_scalar("{}_train/average_loss".format(self.experiment_name), loss_meter.avg,
                                        global_step)
-        if global_step > 0 and self.args.trainer.save_step_freq > 0 and self.args.device.is_master and global_step % self.args.trainer.save_step_freq == 0:
+        if global_step > 0 and self.args.trainer.save_step_freq > 0 and global_step % self.args.trainer.save_step_freq == 0:
             message = "experiment:{}; eval, (epoch: {}, steps: {});".format(self.experiment_name, epoch, global_step)
             logger.info(message)
             result = self.evaluate(global_eval_step=global_eval_step)
             global_eval_step = result['global_eval_step']
             Node_F1_MICRO, Pair_F1_MACRO = result['acc']
-            if not self.args.trainer.save_best or (self.args.trainer.save_best
-                                                   and Pair_F1_MACRO > self.args.trainer.best_eval_result):
+            if (not self.args.trainer.save_best or (self.args.trainer.save_best
+                                                   and Pair_F1_MACRO > self.args.trainer.best_eval_result)) and self.args.device.is_master:
                 checkpoint_name = "{}_epoch{}_step{}_lr{:e}_average_loss{:.5f}_NodeF1MICRO{:.5f}_PairF1MACRO{:.5f}.pth".format(
                     self.experiment_name, epoch, global_step, current_lr, loss_meter.avg, Node_F1_MICRO, Pair_F1_MACRO)
                 checkpoint_path = os.path.join(self.args.trainer.save_dir, checkpoint_name)
-                self.save_model(checkpoint_path)
+                self.save_model(checkpoint_path, epoch=epoch, global_step=global_step)
                 if Node_F1_MICRO > self.args.trainer.best_eval_result[0]:
                     self.args.trainer.best_eval_result[0] = Node_F1_MICRO
                     self.args.trainer.best_model_path = checkpoint_path
@@ -306,18 +306,18 @@ class GraphLayoutExperiment(BaseExperiment):
 
     def _print_epoch_log(self, epoch, global_step, global_eval_step, loss_meter, ni, **kwargs):
         current_lr = self._get_current_lr(ni, global_step)
-        if self.args.trainer.save_epoch_freq > 0 and self.args.device.is_master and epoch % self.args.trainer.save_epoch_freq == 0:
+        if self.args.trainer.save_epoch_freq > 0 and epoch % self.args.trainer.save_epoch_freq == 0:
             message = "experiment:{}; eval, (epoch: {}, steps: {});".format(self.experiment_name, epoch, global_step)
             logger.info(message)
             result = self.evaluate(global_eval_step=global_eval_step)
             global_eval_step = result['global_eval_step']
             Node_F1_MICRO, Pair_F1_MACRO = result['acc']
-            if not self.args.trainer.save_best or (self.args.trainer.save_best
-                                                   and Pair_F1_MACRO > self.args.trainer.best_eval_result):
+            if (not self.args.trainer.save_best or (self.args.trainer.save_best
+                                                   and Pair_F1_MACRO > self.args.trainer.best_eval_result)) and self.args.device.is_master:
                 checkpoint_name = "{}_epoch{}_step{}_lr{:e}_average_loss{:.5f}_NodeF1MICRO{:.5f}_PairF1MACRO{:.5f}.pth".format(
                     self.experiment_name, epoch, global_step, current_lr, loss_meter.avg, Node_F1_MICRO, Pair_F1_MACRO)
                 checkpoint_path = os.path.join(self.args.trainer.save_dir, checkpoint_name)
-                self.save_model(checkpoint_path)
+                self.save_model(checkpoint_path, epoch=epoch, global_step=global_step)
                 if Node_F1_MICRO > self.args.trainer.best_eval_result[0]:
                     self.args.trainer.best_eval_result[0] = Node_F1_MICRO
                     self.args.trainer.best_model_path = checkpoint_path

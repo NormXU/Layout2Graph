@@ -22,7 +22,10 @@ FROM ${BASE_IMAGE} AS base
 
 # This is useful for set this env
 ARG BASE_IMAGE=ubuntu:18.04
-RUN rm /etc/apt/sources.list.d/cuda.list && rm /etc/apt/sources.list.d/nvidia-ml.list
+ARG CUDA_LIST_DIR=/etc/apt/sources.list.d/cuda.list
+ARG NVIDIA_ML_LIST_DIR=/etc/apt/sources.list.d/nvidia-ml.list
+RUN if [ -f "$NVIDIA_ML_LIST_DIR" ]; then rm $NVIDIA_ML_LIST_DIR; fi
+RUN if [ -f "$CUDA_LIST_DIR" ]; then rm $CUDA_LIST_DIR; fi
 
 FROM dockerhub.datagrand.com/ysocr/file_image:release as file-server
 
@@ -62,9 +65,17 @@ RUN pip install --no-cache-dir -U pip setuptools \
 RUN export USE_CUDA=1
 
 ARG CUDA_VERSION=""
+ARG TORCH_VER=""
+ARG TORCH_VISION_VER=""
+ARG BASE_IMAGE=ubuntu:18.04
 
-RUN TORCH_VER=$(curl --silent --location https://pypi.org/pypi/torch/json | python -c "import sys, json, pkg_resources; releases = json.load(sys.stdin)['releases']; print(sorted(releases, key=pkg_resources.parse_version)[-1])") && \
-    TORCH_VISION_VER=$(curl --silent --location https://pypi.org/pypi/torchvision/json | python -c "import sys, json, pkg_resources; releases = json.load(sys.stdin)['releases']; print(sorted(releases, key=pkg_resources.parse_version)[-1])") && \
+RUN if [ "$TORCH_VER" = "" ] || [ $TORCH_VISION_VER = "" ] ; then \
+        TORCH_VER=$(curl --silent --location https://pypi.org/pypi/torch/json | python -c "import sys, json, pkg_resources; releases = json.load(sys.stdin)['releases']; print(sorted(releases, key=pkg_resources.parse_version)[-1])"); \
+        TORCH_VISION_VER=$(curl --silent --location https://pypi.org/pypi/torchvision/json | python -c "import sys, json, pkg_resources; releases = json.load(sys.stdin)['releases']; print(sorted(releases, key=pkg_resources.parse_version)[-1])"); \
+    else \
+        TORCH_VER=$TORCH_VER; \
+        TORCH_VISION_VER=$TORCH_VISION_VER; \
+    fi && \
     # Specify TORCH_VER and TORCH_VISION_VER
     if echo "$BASE_IMAGE" | grep -q "cuda:"; then \
         # Install CUDA version specific binary when CUDA version is specified as a build arg
@@ -100,8 +111,8 @@ ENV PYTHONUNBUFFERED TRUE
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install --no-install-recommends -y \
-    python3.8 python3.8-dev python3.8-distutils openssh-server git vim openjdk-11-jdk  \
-    build-essential  ca-certificates  dpkg-dev fakeroot sudo git curl wget \
+    python3.8 python3.8-dev python3.8-distutils openssh-server git vim ffmpeg libsm6 libxext6 \
+    build-essential  ca-certificates  dpkg-dev fakeroot sudo git curl wget screen \
     && rm -rf /var/lib/apt/lists/*
 
 RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.8 1 \
@@ -127,7 +138,6 @@ WORKDIR /home/ysocr/
 ENV WORK_DIR /home/ysocr
 
 COPY . ${WORK_DIR}
-COPY --from=file-server /data/models/yslm_models/models ${WORK_DIR}/data/pretrain/layoutlm
 
 
 RUN mkdir /data && \

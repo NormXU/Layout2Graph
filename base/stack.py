@@ -86,8 +86,7 @@ class PGDPerturbation(object):
 
     def forward(self, inputs, outputs, text_tensor, pred_size, length_tensor, loss):
         if self.random_start:
-            inputs_adv = torch.Tensor(np.random.uniform(-self.epsilon, self.epsilon, inputs.shape)).to(
-                inputs.device) + inputs
+            inputs_adv = torch.Tensor(np.random.uniform(-self.epsilon, self.epsilon, inputs.shape), device=inputs.device) + inputs
         else:
             inputs_adv = inputs
         for i in range(self.k):
@@ -139,8 +138,7 @@ class FreeLBPerturbation(object):
     def forward(self, inputs, outputs, text_tensor, pred_size, length_tensor, loss):
         loss.backward(retain_graph=True)
         if self.random_start:
-            inputs_adv = torch.Tensor(np.random.uniform(-self.epsilon, self.epsilon, inputs.shape)).to(
-                inputs.device) + inputs
+            inputs_adv = torch.Tensor(np.random.uniform(-self.epsilon, self.epsilon, inputs.shape), device=inputs.device) + inputs
         else:
             inputs_adv = inputs
         for i in range(self.k):

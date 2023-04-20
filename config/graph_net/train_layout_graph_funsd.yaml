@@ -1,6 +1,7 @@
+base: config/graph_net/train_layout_graph.yaml
 model:
   model_path:
-  mixed_precision_flag: false
+  mixed_precision: 'no'
   k_nearest_num: 10
   text_hidden_dim:
   encode_text_type: none
@@ -61,6 +62,13 @@ datasets:
     batch_size: 2
     collate_fn:
       type: GraphCollateFn
+      aug_flag: false
+      cut_percent: 0.2 #需要cut的框的百分比
+      cut_ratio: 0.2 #cut的比例
+      variety_percent: 0.0 #需要偏移的框的百分比
+      variety_ratio: 0.0  #偏移比例
+      delete_percent: 0.5 #需要删除的百分比
+      delete_ratio: 0.2  #删除比例
       debug_cell: false
       pad_flag: true
   eval:
@@ -70,4 +78,5 @@ datasets:
       label_root:
         - /open-dataset/OD-layout/FUNSD_word_graph_labels/testing_data
     collate_fn:
+      aug_flag: false
       debug_cell: false

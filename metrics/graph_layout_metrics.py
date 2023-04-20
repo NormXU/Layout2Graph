@@ -87,7 +87,7 @@ class GraphLayoutMetric(object):
                                                                  self.pred_labels_cell,
                                                                  average='micro')
         report.update({
-            "accuracy_cell": sum([item[2] for key, item in correct_map.items()]) / len(correct_map),
+            "accuracy_cell": sum([item[2] for key, item in correct_map.items()]) / len(correct_map) if len(correct_map)> 0 else 0.0,
             'Pair_F1_MACRO': F1_MACRO,
             'Pair_F1_MICRO': F1_MICRO,
             "sums_cell": sums,

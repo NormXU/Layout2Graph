@@ -1,0 +1,71 @@
+model:
+  model_path:
+  type: GraphLayoutNet
+  class_list: ['Text', 'Title', 'Figure', 'Table', 'List', 'Header', 'Footer']
+  class_map: {}
+
+predictor:
+  img_input_dirs:
+    - /open-dataset/OD-layout/publaynet/val
+  img_label_dirs:
+    - /open-dataset/OD-layout/publaynet_entity_graph_labels/val
+  save_dir:
+  do_visualize: false
+  save_coco_result: true
+  post_processor:
+    label_priority_list: [ 1, 5, 6, 4, 0, 3, 2 ]
+trainer:
+  loss:
+    type: GraphLayoutLoss
+    edge_type: CrossEntropyLoss
+    edge_contrastive_loss_flag: false
+    node_contrastive_loss_flag: false
+    class_weight_flag: true
+    node_weight: [ 0.42, 3.15, 1.0, 0.4, 7.98, 7.82, 7.14]
+    edge_weight: [ 2.3, 1.0 ]
+    #    edge_type: FocalLoss
+    gamma: 2 #focal loss
+    alpha:
+    size_average: true #focal loss
+    loss_weight: -1
+  metric:
+    type: GraphLayoutMetric
+  epochs: 20
+  save_dir:
+  tensorboard_dir:
+  save_epoch_freq: 1
+  save_step_freq: 0
+  print_freq: 200
+  eval_print_freq: 100
+  display_freq: 200
+datasets:
+  train:
+    dataset:
+      type: GraphLayoutDataset
+      crop_img_flag: false
+      data_root:
+        - /open-dataset/OD-layout/DocLayNet_core
+      label_root:
+        - /open-dataset/OD-layout/DocLayNet_core_graph_labels/train
+    num_workers: 0
+    batch_size: 2
+    collate_fn:
+      type: GraphCollateFn
+      aug_flag: true
+      cut_percent: 0.2 #需要cut的框的百分比
+      cut_ratio: 0.2 #cut的比例
+      variety_percent: 0.0 #需要偏移的框的百分比
+      variety_ratio: 0.0  #偏移比例
+      delete_percent: 0.5 #需要删除的百分比
+      delete_ratio: 0.2  #删除比例
+      debug_cell: false
+      pad_flag: false
+  eval:
+    dataset:
+      data_root:
+        - /open-dataset/OD-layout/DocLayNet_core
+      label_root:
+        - /open-dataset/OD-layout/DocLayNet_core_graph_labels/val
+    collate_fn:
+      aug_flag: false
+      debug_cell: false

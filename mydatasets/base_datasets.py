@@ -8,7 +8,7 @@ from base.driver import logger
 
 class BaseDataset(Dataset):
 
-    def __init__(self, data_root, name="", dataset_format="json"):
+    def __init__(self, data_root, name="", dataset_format="json", **kwargs):
         if isinstance(data_root, list):
             self.data_root = data_root
         else:
@@ -19,7 +19,7 @@ class BaseDataset(Dataset):
 
 class BaseImgDataset(Dataset):
 
-    def __init__(self, data_root, name="", extensions=None):
+    def __init__(self, data_root, name="", extensions=None, **kwargs):
         if isinstance(data_root, list):
             self.data_root = data_root
         else:

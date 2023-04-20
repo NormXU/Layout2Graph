@@ -9,7 +9,6 @@ from torch.utils.data import Dataset
 import os
 import torch
 import copy
-import spacy
 from PIL import Image
 
 from base.common_util import get_file_path_list
@@ -39,11 +38,14 @@ class GraphLayoutDataset(Dataset):
                     img_path = img_path.replace('/ocr_results_images/', '/images/')
                 if not os.path.exists(img_path):
                     img_path = img_path.replace('.jpg', '.png')
+                if not os.path.exists(img_path):
+                    img_path = img_path.replace('.png', '.jpeg')
                 self.file_path_list.append(img_path)
         self.label_list = [None] * len(self.label_path_list)
         self.crop_img_flag = kwargs['crop_img_flag']
         self.encode_text_type = kwargs.get('encode_text_type', None)
         if self.encode_text_type == 'spacy':
+            import spacy
             self.text_emb = spacy.load('en_core_web_lg')
 
     def __len__(self):
@@ -57,7 +59,7 @@ class GraphLayoutDataset(Dataset):
                     json_data = json.load(f)
                 except:
                     logger.warning('bad json:{}'.format(self.label_path_list[index]))
-                    return self[index + 1]
+                    return self[index - 1]
                 cell_box, cell_lloc, cell_content, encode_text = [], [], [], []
                 for item in json_data['img_data_list']:
                     # TODO 可以过滤一些文本框不去预测
@@ -69,7 +71,7 @@ class GraphLayoutDataset(Dataset):
                             textout = self.text_emb(item['content']).vector
                             encode_text.append(textout)
                 if len(cell_box) == 0:
-                    return self[index + 1]
+                    return self[index - 1]
             if self.crop_img_flag:
                 cell_box = np.array(cell_box)
                 min_x = cell_box[:, [0, 2]].min()
