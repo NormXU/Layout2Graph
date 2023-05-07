@@ -11,3 +11,13 @@ we propose a language-independent GNN framework for document layout analysis tas
 Install with `pip install -r requirements.txt`
 
 **Start Training**: `python mytools/train_graph.py`
+
+If you find our work helpful, please cite us and leave us a star.
+```
+@article{wei2023paragraph2graph,
+  title={PARAGRAPH2GRAPH: A GNN-based framework for layout paragraph analysis},
+  author={Wei, Shu and Xu, Nuo},
+  journal={arXiv preprint arXiv:2304.11810},
+  year={2023}
+}
+```
