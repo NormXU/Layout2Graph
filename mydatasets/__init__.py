@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-# email:bingchengzhou@foxmail.com
 # create: 2021/6/8
 from mydatasets.base_datasets import BaseDataset, BaseImgDataset
 

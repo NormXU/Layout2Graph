@@ -18,6 +18,7 @@ from transformers.optimization import get_constant_schedule_with_warmup, get_cos
 from base.torch_utils.scheduler_util import LinearLRScheduler, get_cosine_schedule_by_epochs, \
     get_stairs_schedule_with_warmup
 
+
 def seed_all(random_seed):
     if random_seed is not None:
         random.seed(random_seed)
@@ -25,6 +26,7 @@ def seed_all(random_seed):
         torch.manual_seed(random_seed)
         torch.cuda.manual_seed_all(random_seed)
         torch.backends.cudnn.deterministic = True
+
 
 def print_network(net, verbose=False, name=""):
     num_params = 0
@@ -54,8 +56,8 @@ def get_grad_norm(parameters, norm_type=2):
     total_norm = 0
     for p in parameters:
         param_norm = p.grad.data.norm(norm_type)
-        total_norm += param_norm.item()**norm_type
-    total_norm = total_norm**(1. / norm_type)
+        total_norm += param_norm.item() ** norm_type
+    total_norm = total_norm ** (1. / norm_type)
     return total_norm
 
 

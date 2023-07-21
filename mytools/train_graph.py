@@ -37,6 +37,11 @@ def init_args():
         # default='evaluate',
         type=str,
     )
+    parser.add_argument(
+        '--use_accelerate',
+        default=False,
+        type=bool,
+    )
     args = parser.parse_args()
     os.environ['WORKSPACE'] = args.experiment_name
     return args
@@ -44,7 +49,8 @@ def init_args():
 
 def main(args):
     config = init_experiment_config(args.config_file, args.experiment_name)
-    config.update({'phase': args.phase})
+    config.update({'phase': args.phase,
+                   'use_accelerate': args.use_accelerate})
     experiment_instance = getattr(experiment, get_experiment_name(args.experiment_name))(config)
     if args.phase == 'train':
         experiment_instance.train()

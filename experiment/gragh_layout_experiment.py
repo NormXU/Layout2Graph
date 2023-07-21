@@ -7,10 +7,11 @@
 import copy
 import json
 import os
-from PIL import Image, ImageOps
-import numpy as np
 import time
+
+import numpy as np
 import torch
+from PIL import Image
 from tqdm import tqdm
 
 from base.branch_utils.gragh_net_utils.label_converter import TableGraphLabelConverter
@@ -38,7 +39,8 @@ class GraphLayoutExperiment(BaseExperiment):
                     img_path_list = get_file_path_list(self.args.predictor.img_input_dirs[i], ['png'])
                     self.args.predictor.img_paths.extend(img_path_list)
                     self.args.predictor.img_label_paths.extend([
-                        label_path.replace(self.args.predictor.img_input_dirs[i], img_label_dir).split('_')[0]+'.json' for label_path in
+                        label_path.replace(self.args.predictor.img_input_dirs[i], img_label_dir).split('_')[0] + '.json'
+                        for label_path in
                         img_path_list
                     ])
             image_count, instance_count = 0, 0
@@ -69,10 +71,12 @@ class GraphLayoutExperiment(BaseExperiment):
                     json_data = json.load(f)
                     cell_box, text = [], []
                     for item in json_data['cells']:
-                        # TODO 可以过滤一些文本框不去预测
+                        # TODO probably we can implement to exclude some bbox out of prediction
                         if len(item['bbox']) > 0 and item['bbox'][2] > 0 and \
                                 abs(item['bbox'][3]) > 0:
-                            cell_box.append([item['bbox'][0], item['bbox'][1]+item['bbox'][3], item['bbox'][0]+item['bbox'][2], item['bbox'][1]])
+                            cell_box.append(
+                                [item['bbox'][0], item['bbox'][1] + item['bbox'][3], item['bbox'][0] + item['bbox'][2],
+                                 item['bbox'][1]])
                             text.append(item['text'])
                 if len(cell_box) == 0:
                     logger.warning('no cell in {}'.format(img_path))
@@ -202,7 +206,10 @@ class GraphLayoutExperiment(BaseExperiment):
         losses = self.criterion(outputs, cls_targets)
         return {'loss': losses['loss'], 'outputs': outputs, 'cls_targets': cls_targets}
 
-    # config的联动关系可以写在这个函数中
+    """
+        Initialization Functions
+    """
+
     def _init_config(self, config):
         config['model']['num_classes'] = len(config['model']['class_list'])
         if 'datasets' in config:
@@ -231,6 +238,10 @@ class GraphLayoutExperiment(BaseExperiment):
             self.label_converter = TableGraphLabelConverter(alphabet=charsets)
             config['model']['vocab_size'] = len(self.label_converter.alphabet)
         super().init_model(config)
+
+    """
+        Tool Functions
+    """
 
     def load_model(self, checkpoint_path, strict=True, **kwargs):
         if os.path.exists(checkpoint_path) and os.path.isfile(checkpoint_path):
@@ -290,7 +301,7 @@ class GraphLayoutExperiment(BaseExperiment):
             global_eval_step = result['global_eval_step']
             Node_F1_MICRO, Pair_F1_MACRO = result['acc']
             if (not self.args.trainer.save_best or (self.args.trainer.save_best
-                                                   and Pair_F1_MACRO > self.args.trainer.best_eval_result)) and self.args.device.is_master:
+                                                    and Pair_F1_MACRO > self.args.trainer.best_eval_result)) and self.args.device.is_master:
                 checkpoint_name = "{}_epoch{}_step{}_lr{:e}_average_loss{:.5f}_NodeF1MICRO{:.5f}_PairF1MACRO{:.5f}.pth".format(
                     self.experiment_name, epoch, global_step, current_lr, loss_meter.avg, Node_F1_MICRO, Pair_F1_MACRO)
                 checkpoint_path = os.path.join(self.args.trainer.save_dir, checkpoint_name)
@@ -313,7 +324,7 @@ class GraphLayoutExperiment(BaseExperiment):
             global_eval_step = result['global_eval_step']
             Node_F1_MICRO, Pair_F1_MACRO = result['acc']
             if (not self.args.trainer.save_best or (self.args.trainer.save_best
-                                                   and Pair_F1_MACRO > self.args.trainer.best_eval_result)) and self.args.device.is_master:
+                                                    and Pair_F1_MACRO > self.args.trainer.best_eval_result)) and self.args.device.is_master:
                 checkpoint_name = "{}_epoch{}_step{}_lr{:e}_average_loss{:.5f}_NodeF1MICRO{:.5f}_PairF1MACRO{:.5f}.pth".format(
                     self.experiment_name, epoch, global_step, current_lr, loss_meter.avg, Node_F1_MICRO, Pair_F1_MACRO)
                 checkpoint_path = os.path.join(self.args.trainer.save_dir, checkpoint_name)

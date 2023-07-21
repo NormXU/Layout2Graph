@@ -17,7 +17,7 @@ class DefaultPostProcessor():
 
     def __init__(self, **kwargs):
         self.delete_dif_cls = kwargs.get('delete_dif_cls', True)
-        #'Text'0, 'Title'1, 'Header'2, 'Footer'3, 'Figure'4, 'Table'5, 'List'6
+        # 'Text'0, 'Title'1, 'Header'2, 'Footer'3, 'Figure'4, 'Table'5, 'List'6
         self.label_priority_list = kwargs.get('label_priority_list', [1, 5, 6, 4, 0, 3, 2])
         self.pair_score_threshold = kwargs.get('pair_score_threshold', 0.0)
         self.combine_threshold = kwargs.get('combine_threshold', 1.0)

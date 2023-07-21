@@ -1,32 +1,32 @@
 # -*- coding:utf-8 -*-
 # create: 2021/7/2
 import copy
-import time
-import munch
-import logging
-import json
-import os
-import torch
 import itertools
+import json
+import logging
+import os
+import time
+from contextlib import nullcontext
+
+import munch
+import torch
+from accelerate import Accelerator
+from torch import autocast
+from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 
 import mydatasets
-from torch import autocast
+from base.common_util import get_absolute_file_path, merge_config, get_file_path_list
+from base.common_util import save_params
+from base.driver import log_formatter
 from base.driver import logger
+from base.torch_utils.dl_util import get_optimizer, get_scheduler, get_scheduler2, seed_all, get_grad_norm
 from base.torch_utils.torch_util import ModelEMA
 from loss import get_criterion
 from metrics import get_metric
+from metrics.meter import AverageMeter
 from mydatasets import get_dataset
 from networks import get_network
-from accelerate import Accelerator
-from contextlib import contextmanager, nullcontext
-from torch.utils.data import DataLoader
-from base.common_util import save_params
-
-from metrics.meter import AverageMeter
-from torch.utils.tensorboard import SummaryWriter
-from base.driver import log_formatter, PROJECT_ROOT_PATH
-from base.torch_utils.dl_util import get_optimizer, get_scheduler, get_scheduler2, seed_all, get_grad_norm
-from base.common_util import get_absolute_file_path, merge_config, get_file_path_list
 
 
 class BaseExperiment(object):
@@ -43,7 +43,6 @@ class BaseExperiment(object):
         self.init_predictor_args(config)
         self.init_evaluator_args(config)
         self.prepare_accelerator()
-        self.init_quantization_model()
 
     """
         Main Block
@@ -130,13 +129,6 @@ class BaseExperiment(object):
             if self.args.trainer.scheduler_by_epoch:
                 self._step_scheduler(global_step)
             global_eval_step = self._print_epoch_log(epoch, global_step, global_eval_step, loss_meter, ni)
-            if self.args.model.quantization_type == 'quantization_aware_training':
-                if epoch > 3:
-                    # Freeze quantizer parameters
-                    self.model.apply(torch.quantization.disable_observer)
-                if epoch > 2:
-                    # Freeze batch norm mean and variance estimates
-                    self.model.apply(torch.nn.intrinsic.qat.freeze_bn_stats)
         model_config_path = self._train_post_process()
         if self.args.device.is_master:
             self.writer.close()
@@ -147,12 +139,7 @@ class BaseExperiment(object):
         }
 
     def _step_forward(self, batch, is_train=True, eval_model=None, **kwargs):
-        # ADD注意：由于增加了EMA功能，_step_forward就不一定使用self.model了
-        model = eval_model if is_train is False and eval_model is not None else self.model
-        # ADD Runs the forward pass with autocasting.
-        with self.precision_scope:
-            output = model(input)
-        return output
+        pass
 
     def _step_backward(self, loss, **kwargs):
         # ADD grad norm和clip都不在这一步做
@@ -202,11 +189,11 @@ class BaseExperiment(object):
             self.scheduler.step_update(global_step)
         else:
             self.scheduler.step()
+
     """
         Initialization Functions
     """
 
-    # config的联动关系可以写在这个函数中
     def _init_config(self, config):
         if 'trainer' in config and config.get('phase', 'train') == 'train':
             trainer_args = config["trainer"]
@@ -222,48 +209,46 @@ class BaseExperiment(object):
         return config
 
     def init_device(self, config):
-        # ADD RUN_ON_GPU_IDs=-1是cpu，多张默认走accelerator
         self.args.device = munch.munchify(config.get('device', {}))
         self.accelerator = None
         self.weight_dtype = torch.float32
         self.gradient_accumulate_scope = nullcontext
         self.precision_scope = nullcontext()
         self.use_torch_amp = False
-        if os.environ.get("RUN_ON_GPU_IDs", 0) == str(-1):
+
+        # accelerator configuration
+        if config['use_accelerate']:
+            # If you define multiple visible GPU, I suppose you to use accelerator to do ddp training
+            self.accelerator = Accelerator(
+                gradient_accumulation_steps=int(self.args.trainer.grad_accumulate),
+                mixed_precision=self.args.model.mixed_precision)
+            self.args.device.device_id = self.accelerator.device
+            self.args.device.device_ids = []
+            if self.accelerator.mixed_precision == "fp16":
+                self.weight_dtype = torch.float16
+            elif self.accelerator.mixed_precision == "bf16":
+                self.weight_dtype = torch.bfloat16
+            self.gradient_accumulate_scope = self.accelerator.accumulate
+            self.args.device.is_master = self.accelerator.is_main_process
+            self.args.device.is_distributed = self.accelerator.num_processes > 1
+        elif os.environ.get("RUN_ON_GPU_IDs", 0) == str(-1):
             # load model with CPU
             self.args.device.device_id = torch.device("cpu")
             self.args.device.device_ids = [-1]
             self.args.device.is_master = True
             self.args.device.is_distributed = False
         else:
-            # accelerator configuration
-            if len(os.environ.get("RUN_ON_GPU_IDs", 0)) > 1:
-                # If you define multiple visible GPU, I suppose you to use accelerator to do ddp training
-                self.accelerator = Accelerator(
-                    gradient_accumulation_steps=self.args.trainer.grad_accumulate,
-                    mixed_precision=self.args.model.mixed_precision)
-                self.args.device.device_id = self.accelerator.device
-                self.args.device.device_ids = []
-                if self.accelerator.mixed_precision == "fp16":
-                    self.weight_dtype = torch.float16
-                elif self.accelerator.mixed_precision == "bf16":
-                    self.weight_dtype = torch.bfloat16
-                self.gradient_accumulate_scope = self.accelerator.accumulate
-                self.args.device.is_master = self.accelerator.is_main_process
-                self.args.device.is_distributed = self.accelerator.num_processes > 1
-            else:
-                # USE one GPU specified by user w/o using accelerate
-                device_id = os.environ.get("RUN_ON_GPU_IDs", 0)
-                self.args.device.device_id = torch.device("cuda:{}".format(device_id))
-                self.args.device.device_ids = [int(device_id)]
-                torch.cuda.set_device(int(device_id))
-                self.args.device.is_master = True
-                self.args.device.is_distributed = False
-                if self.args.model.mixed_precision in ["fp16", "bp16"]:
-                    # ADD mixed_precision_flag改为use_torch_amp
-                    self.use_torch_amp = True
-                    self.weight_dtype = torch.float16
-                    self.precision_scope = autocast(device_type="cuda", dtype=self.weight_dtype)
+            # USE one GPU specified by user w/o using accelerate
+            device_id = os.environ.get("RUN_ON_GPU_IDs", 0)
+            self.args.device.device_id = torch.device("cuda:{}".format(device_id))
+            self.args.device.device_ids = [int(device_id)]
+            torch.cuda.set_device(int(device_id))
+            self.args.device.is_master = True
+            self.args.device.is_distributed = False
+            if self.args.model.mixed_precision in ["fp16", "bf16"]:
+                self.use_torch_amp = True
+                self.weight_dtype = torch.float16 if self.args.model.mixed_precision == "fp16" else torch.bfloat16
+                self.precision_scope = autocast(device_type="cuda", dtype=self.weight_dtype)
         logger.info("device:{}, is_master:{}, device_ids:{}, is_distributed:{}".format(
             self.args.device.device_id, self.args.device.is_master, self.args.device.device_ids,
             self.args.device.is_distributed))
@@ -299,12 +284,6 @@ class BaseExperiment(object):
                                                                        phase='eval')
             logger.info("success init eval data loader len:{}".format(len(self.eval_data_loader)))
 
-    def init_quantization_model(self):
-        # 注意：所有的量化都必须用cpu跑
-        self.post_training_dynamic_quantization_preprocess()
-        self.post_training_static_quantization_preprocess()
-        self.quantization_aware_training_preprocess()
-
     def init_random_seed(self, config):
         if 'random_seed' in config['trainer']:
             seed_all(config['trainer']['random_seed'])
@@ -322,7 +301,7 @@ class BaseExperiment(object):
                 for img_dir in img_dirs:
                     self.args.predictor.img_paths.extend(get_file_path_list(img_dir, ['jpg', 'png', 'jpeg']))
             if predictor_args['save_dir'] is None and 'model_path' in config['model'] and config['model'][
-                    'model_path'] is not None:
+                'model_path'] is not None:
                 predictor_args['save_dir'] = os.path.join(os.path.dirname(config['model']['model_path']),
                                                           'test_results')
             self.args.predictor.save_dir = get_absolute_file_path(predictor_args["save_dir"])
@@ -444,65 +423,15 @@ class BaseExperiment(object):
             unwrapped_model = self.accelerator.unwrap_model(self.model)
             self.accelerator.save(unwrapped_model.state_dict(), checkpoint_path)
         else:
-            if self.args.model.quantization_type == 'quantization_aware_training':
-                self.model.eval()
-                model_int8 = torch.quantization.convert(self.model)
-                torch.save(model_int8.state_dict(), checkpoint_path)
-            else:
-                torch.save(self.model.state_dict(), checkpoint_path)
-                # ADD resume
-                if self.args.trainer.resume_flag:
-                    save_kwargs.update({
-                        'optimizer_state_dict': self.optimizer.state_dict(),
-                        'scheduler_state_dict': self.scheduler.state_dict(),
-                    })
-                    torch.save(save_kwargs, checkpoint_path.replace('.pth', '_resume.pth'))
+            torch.save(self.model.state_dict(), checkpoint_path)
+            # ADD resume
+            if self.args.trainer.resume_flag:
+                save_kwargs.update({
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'scheduler_state_dict': self.scheduler.state_dict(),
+                })
+                torch.save(save_kwargs, checkpoint_path.replace('.pth', '_resume.pth'))
         logger.info("model successfully saved to {}".format(checkpoint_path))
-
-    # only for evaluate or predict；只支持量化linear\LSTM\RNN\Transformer,不支持CNN
-    def post_training_dynamic_quantization_preprocess(self):
-        if self.args.model.quantization_type == 'post_training_dynamic_quantization' and self.args.phase != 'train':
-            # 量化前跑一次看看原始结果
-            if self.args.phase == 'evaluate':
-                self.evaluate()
-            else:
-                self.predict()
-            self.model = torch.quantization.quantize_dynamic(
-                self.model,  # the original model
-                # {torch.nn.Linear},  # a set of layers to dynamically quantize
-                dtype=torch.qint8)  # the target dtype for quantized weights
-            os.makedirs(self.args.trainer.save_dir, exist_ok=True)
-            checkpoint_path = os.path.join(self.args.trainer.save_dir, 'post_training_dynamic_quantization_model.pth')
-            self.save_model(checkpoint_path)
-
-    # only for evaluate or predict；只支持量化linear\CNN,不支持LSTM\RNN
-    def post_training_static_quantization_preprocess(self):
-        if self.args.model.quantization_type == 'post_training_static_quantization' and self.args.phase != 'train':
-            # self.model.qconfig = torch.quantization.default_qconfig # 不同的量化方法，fbgemm适合x86，qnnpack适合arm
-            self.model.qconfig = torch.quantization.get_default_qconfig('qnnpack')
-            # self.model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
-            self.model.fuse_model(
-            )  # model记得实现这个方法，可fuse的layer：[Conv, Relu], [Conv, BatchNorm], [Conv, BatchNorm, Relu], [Linear, Relu]
-            self.model = torch.quantization.prepare(self.model)
-            # 量化前跑一次看看原始结果,static量化必须先forward
-            if self.args.phase == 'evaluate':
-                self.evaluate()
-            else:
-                self.predict()
-            self.model = torch.quantization.convert(self.model)
-            os.makedirs(self.args.trainer.save_dir, exist_ok=True)
-            checkpoint_path = os.path.join(self.args.trainer.save_dir, 'post_training_static_quantization_model.pth')
-            self.save_model(checkpoint_path)
-
-    # only for train；只支持量化linear\CNN,不支持LSTM\RNN
-    def quantization_aware_training_preprocess(self):
-        if self.args.model.quantization_type == 'quantization_aware_training' and self.args.phase == 'train':
-            # self.model.qconfig = torch.quantization.default_qconfig # 不同的量化方法，fbgemm适合x86，qnnpack适合arm
-            self.model.qconfig = torch.quantization.get_default_qconfig('qnnpack')
-            # self.model.qconfig = torch.quantization.get_default_qconfig('fbgemm')
-            self.model.fuse_model()
-            self.model.train()
-            torch.quantization.prepare_qat(self.model, inplace=True)
 
     def _get_data_loader_from_dataset(self, dataset, data_loader_args, phase="train"):
         num_workers = data_loader_args.get("num_workers", 0)
@@ -569,7 +498,7 @@ class BaseExperiment(object):
             global_eval_step, acc = result['global_eval_step'], result['acc']
             # ADD is_master判断移到这里
             if (not self.args.trainer.save_best or (self.args.trainer.save_best
-                                                   and acc > self.args.trainer.best_eval_result)) and self.args.device.is_master:
+                                                    and acc > self.args.trainer.best_eval_result)) and self.args.device.is_master:
                 checkpoint_name = "{}_epoch{}_step{}_lr{:e}_average_loss{:.5f}_acc{:.5f}.pth".format(
                     self.experiment_name, epoch, global_step, current_lr, loss_meter.avg, acc)
                 checkpoint_path = os.path.join(self.args.trainer.save_dir, checkpoint_name)
@@ -589,7 +518,7 @@ class BaseExperiment(object):
             global_eval_step, acc = result['global_eval_step'], result['acc']
             # ADD is_master判断移到这里
             if (not self.args.trainer.save_best or (self.args.trainer.save_best
-                                                   and acc > self.args.trainer.best_eval_result)) and self.args.device.is_master:
+                                                    and acc > self.args.trainer.best_eval_result)) and self.args.device.is_master:
                 checkpoint_name = "{}_epoch{}_step{}_lr{:e}_average_loss{:.5f}_acc{:.5f}.pth".format(
                     self.experiment_name, epoch, global_step, current_lr, loss_meter.avg, acc)
                 checkpoint_path = os.path.join(self.args.trainer.save_dir, checkpoint_name)
