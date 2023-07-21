@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-# email:bingchengzhou@foxmail.com
 # create: 2021/10/9
 import math
 import torch

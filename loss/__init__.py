@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-# email:bingchengzhou@foxmail.com
 # create: 2021/7/16
 # region for master
 from timm.loss.cross_entropy import LabelSmoothingCrossEntropy, SoftTargetCrossEntropy

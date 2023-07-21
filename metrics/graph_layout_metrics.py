@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-# email:weishu@datagrand.com
 # create: 2021/12/1
 import numpy as np
 import torch.nn.functional as F

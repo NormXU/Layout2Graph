@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-# email:bingchengzhou@foxmail.com
 # create: 2021/6/17
 
 import json
@@ -76,105 +75,6 @@ def set_params_optimizer(model, keyword=None, keywords=None, weight_decay=0.0, l
         else:
             no_decay_param_names.append(name)
     return param_dict, no_decay_param_names
-
-
-def get_optimizer_yolo(model, optimizer_type="adam", lr=0.001, weight_decay=0.0, momentum=0, **kwargs):
-    lr = float(lr)
-    weight_decay = float(weight_decay)
-    momentum = float(momentum)
-
-    g = [], [], []  # optimizer parameter groups
-    # bn = nn.BatchNorm2d, nn.LazyBatchNorm2d, nn.GroupNorm, nn.InstanceNorm2d, nn.LazyInstanceNorm2d, nn.LayerNorm
-    bn = tuple(v for k, v in nn.__dict__.items() if 'Norm' in k)  # normalization layers, i.e. BatchNorm2d()
-    for v in model.modules():
-        if hasattr(v, 'bias') and isinstance(v.bias, nn.Parameter):  # bias
-            g[2].append(v.bias)
-        if isinstance(v, bn):  # weight (no decay)
-            g[1].append(v.weight)
-        elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):  # weight (with decay)
-            g[0].append(v.weight)
-    #yolov7
-    # pg = [], [], []  # optimizer parameter groups
-    # for k, v in model.named_modules():
-    #     if hasattr(v, 'bias') and isinstance(v.bias, nn.Parameter):
-    #         pg[1].append(v.bias)  # biases
-    #     if isinstance(v, nn.BatchNorm2d):
-    #         pg[2].append(v.weight)  # no decay
-    #     elif hasattr(v, 'weight') and isinstance(v.weight, nn.Parameter):
-    #         pg[0].append(v.weight)  # apply decay
-    #     if hasattr(v, 'im'):
-    #         if hasattr(v.im, 'implicit'):
-    #             pg[2].append(v.im.implicit)
-    #         else:
-    #             for iv in v.im:
-    #                 pg[2].append(iv.implicit)
-    #     if hasattr(v, 'imc'):
-    #         if hasattr(v.imc, 'implicit'):
-    #             pg[2].append(v.imc.implicit)
-    #         else:
-    #             for iv in v.imc:
-    #                 pg[2].append(iv.implicit)
-    #     if hasattr(v, 'imb'):
-    #         if hasattr(v.imb, 'implicit'):
-    #             pg[2].append(v.imb.implicit)
-    #         else:
-    #             for iv in v.imb:
-    #                 pg[2].append(iv.implicit)
-    #     if hasattr(v, 'imo'):
-    #         if hasattr(v.imo, 'implicit'):
-    #             pg[2].append(v.imo.implicit)
-    #         else:
-    #             for iv in v.imo:
-    #                 pg[2].append(iv.implicit)
-    #     if hasattr(v, 'ia'):
-    #         if hasattr(v.ia, 'implicit'):
-    #             pg[2].append(v.ia.implicit)
-    #         else:
-    #             for iv in v.ia:
-    #                 pg[2].append(iv.implicit)
-    #     if hasattr(v, 'attn'):
-    #         if hasattr(v.attn, 'logit_scale'):
-    #             pg[2].append(v.attn.logit_scale)
-    #         if hasattr(v.attn, 'q_bias'):
-    #             pg[2].append(v.attn.q_bias)
-    #         if hasattr(v.attn, 'v_bias'):
-    #             pg[2].append(v.attn.v_bias)
-    #         if hasattr(v.attn, 'relative_position_bias_table'):
-    #             pg[2].append(v.attn.relative_position_bias_table)
-    #     if hasattr(v, 'rbr_dense'):
-    #         if hasattr(v.rbr_dense, 'weight_rbr_origin'):
-    #             pg[2].append(v.rbr_dense.weight_rbr_origin)
-    #         if hasattr(v.rbr_dense, 'weight_rbr_avg_conv'):
-    #             pg[2].append(v.rbr_dense.weight_rbr_avg_conv)
-    #         if hasattr(v.rbr_dense, 'weight_rbr_pfir_conv'):
-    #             pg[2].append(v.rbr_dense.weight_rbr_pfir_conv)
-    #         if hasattr(v.rbr_dense, 'weight_rbr_1x1_kxk_idconv1'):
-    #             pg[2].append(v.rbr_dense.weight_rbr_1x1_kxk_idconv1)
-    #         if hasattr(v.rbr_dense, 'weight_rbr_1x1_kxk_conv2'):
-    #             pg[2].append(v.rbr_dense.weight_rbr_1x1_kxk_conv2)
-    #         if hasattr(v.rbr_dense, 'weight_rbr_gconv_dw'):
-    #             pg[2].append(v.rbr_dense.weight_rbr_gconv_dw)
-    #         if hasattr(v.rbr_dense, 'weight_rbr_gconv_pw'):
-    #             pg[2].append(v.rbr_dense.weight_rbr_gconv_pw)
-    #         if hasattr(v.rbr_dense, 'vector'):
-    #             pg[2].append(v.rbr_dense.vector)
-    if optimizer_type == 'adam':
-        optimizer = torch.optim.Adam(g[2], lr=lr, betas=(momentum, 0.999))  # adjust beta1 to momentum
-    elif optimizer_type == 'adamw':
-        optimizer = torch.optim.AdamW(g[2], lr=lr, betas=(momentum, 0.999), weight_decay=0.0)
-    elif optimizer_type == 'rmsprop':
-        optimizer = torch.optim.RMSprop(g[2], lr=lr, momentum=momentum)
-    elif optimizer_type == 'sgd':
-        optimizer = torch.optim.SGD(g[2], lr=lr, momentum=momentum, nesterov=True)
-    else:
-        raise NotImplementedError(f'Optimizer {optimizer_type} not implemented.')
-
-    optimizer.add_param_group({'params': g[0], 'weight_decay': weight_decay})  # add g0 with weight_decay
-    optimizer.add_param_group({'params': g[1]})  # add g1 (BatchNorm2d weights)
-    logger.info(f"{'optimizer:'} {type(optimizer).__name__} with parameter groups "
-                f"{len(g[1])} weight (no decay), {len(g[0])} weight, {len(g[2])} bias")
-    del g
-    return optimizer
 
 
 def get_optimizer(model,

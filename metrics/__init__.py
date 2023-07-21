@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-# email:bingchengzhou@foxmail.com
 # create: 2021/7/1
 from .graph_layout_metrics import GraphLayoutMetric
 

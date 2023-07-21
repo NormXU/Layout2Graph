@@ -1,5 +1,4 @@
 # -*- coding:utf-8 -*-
-# email:bingchengzhou@foxmail.com
 # create: 2021/6/10
 
 import os
@@ -154,7 +153,7 @@ def init_experiment_config(config_file, experiment_name):
     merge_config(input_config, merged_config)
 
     base_config = read_config(os.path.join(PROJECT_ROOT_PATH, 'config',
-                                                      'base.yaml'))
+                                           'base.yaml'))
     final_merged_config = base_config.copy()
     merge_config(merged_config, final_merged_config)
     return final_merged_config

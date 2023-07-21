@@ -8,5 +8,9 @@ Werkzeug==2.0.3
 setuptools==59.5.0
 setproctitle
 accelerate
+packaging
+ninja
 tensorboard
 protobuf==3.20.0
+torch-geometric
+-r requirements/requirements-dependency-2.0.1.txt

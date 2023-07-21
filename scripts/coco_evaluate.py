@@ -1,6 +1,5 @@
 # encoding: utf-8
 '''
-@email: weishu@datagrand.com
 @software: Pycharm
 @time: 2020/9/14 11:37 上午
 @desc:
