@@ -144,9 +144,6 @@ class GraphLayoutExperiment(BaseExperiment):
     def evaluate(self, **kwargs):
         global_eval_step = kwargs.get('global_eval_step', 0)
         eval_model = self.model
-        if eval_model.training and self.ema:
-            self.ema.update_attr(self.model, include=self.args.trainer.ema_include)
-            eval_model = self.ema.ema
         if self.use_torch_amp:
             eval_model.half()
         eval_model.eval()

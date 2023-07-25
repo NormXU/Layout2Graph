@@ -63,12 +63,12 @@ datasets:
     collate_fn:
       type: GraphCollateFn
       aug_flag: false
-      cut_percent: 0.2 #需要cut的框的百分比
-      cut_ratio: 0.2 #cut的比例
-      variety_percent: 0.0 #需要偏移的框的百分比
-      variety_ratio: 0.0  #偏移比例
-      delete_percent: 0.5 #需要删除的百分比
-      delete_ratio: 0.2  #删除比例
+      cut_percent: 0.2
+      cut_ratio: 0.2
+      variety_percent: 0.0
+      variety_ratio: 0.0
+      delete_percent: 0.5
+      delete_ratio: 0.2
       debug_cell: false
       pad_flag: true
   eval:

@@ -55,11 +55,7 @@ class BaseExperiment(object):
 
     def evaluate(self, **kwargs):
         global_eval_step = kwargs.get('global_eval_step', 0)
-        # ADD 增加EMA model
         eval_model = self.model
-        if eval_model.training and self.ema:
-            self.ema.update_attr(self.model, include=self.args.trainer.ema_include)
-            eval_model = self.ema.ema
         if self.use_torch_amp:
             eval_model.half()
         eval_model.eval()
@@ -180,8 +176,6 @@ class BaseExperiment(object):
                 grad_norm = get_grad_norm(params_to_clip)
             self.optimizer.step()
         self.model.zero_grad(set_to_none=True)
-        if self.ema:
-            self.ema.update(self.model)
         return grad_norm
 
     def _step_scheduler(self, global_step, **kwargs):
@@ -323,7 +317,6 @@ class BaseExperiment(object):
             self.mixed_scaler = torch.cuda.amp.GradScaler(enabled=True) if self.use_torch_amp else None
             self.args.trainer.best_eval_result = -1
             self.args.trainer.best_model_path = ''
-            self.ema = ModelEMA(self.model) if trainer_args['use_ema'] else None
             self.args.trainer.start_epoch = 0
             self.args.trainer.start_global_step = 0
             if self.args.trainer.resume_flag and 'model_path' in self.args.model and self.args.model.model_path is not None:

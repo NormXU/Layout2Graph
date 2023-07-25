@@ -21,11 +21,6 @@ from .graph_net import FeatureFusionForFPN, GraphBase, _get_nearest_pair_custom,
 
 
 class GraphLayoutNet(nn.Module):
-    '''
-        对于每个node（文本框）预测一个分类类别，比如['Text', 'Title', 'Header', 'Footer', 'Figure', 'Table', 'List', ‘Seal’]
-        node之间k最近邻/全连接，两两配对去预测关系，是否属于一个实例
-    '''
-
     def __init__(self, **kwargs):
         super(GraphLayoutNet, self).__init__()
         self.num_classes = kwargs['num_classes']

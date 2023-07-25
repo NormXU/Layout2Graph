@@ -19,9 +19,9 @@ def init_args():
     parser = argparse.ArgumentParser(description='trainer args')
     parser.add_argument(
         '--config_file',
-        # default='config/graph_net/train_layout_graph_doclaynet.yaml',
+        default='config/graph_net/train_layout_graph_doclaynet.yaml',
         # default='config/graph_net/train_layout_graph_publaynet.yaml',
-        default='config/graph_net/train_layout_graph_funsd.yaml',
+        # default='config/graph_net/train_layout_graph_funsd.yaml',
         # default='config/graph_net/train_layout_graph_funsd_entity.yaml',
         type=str,
     )

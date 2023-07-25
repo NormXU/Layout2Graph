@@ -16,8 +16,6 @@ evaluator:
   save_dir: /data/data/cache
 trainer:
   resume_flag: false
-  use_ema: false
-  ema_include: [] # 使用EMA功能时，需要被更新的部分
   # gradient configuration
   grad_accumulate: 1 # gradient accumulation
     # this is also an accelerator api. somehow improve the efficiency; conflict with my implementation of gradient accumulation

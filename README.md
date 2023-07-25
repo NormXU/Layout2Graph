@@ -1,4 +1,4 @@
-# Paragraph2Graph: A Language-independent GNN-based framework for layout analysis (WIP 🚧)
+# Paragraph2Graph: A Language-independent GNN-based framework for layout analysis
 
 ![Overview of the pipeline](doc/pipeline.png)
 
@@ -20,7 +20,49 @@ If you are using an older pytorch==1.12.1, make sure to edit ```requirements.txt
 ```-r requirements/requirements-dependency-2.0.1.txt``` with ```-r requirements/requirements-dependency-1.12.1.txt```
 
 ### 2. Prepare dataset
-WIP
+Let's use the [DocLayNet dataset](https://github.com/DS4SD/DocLayNet) as an example:
+
+
+1. Please download the DocLayNet core dataset & DocLayNet extra files and merge them into one folder.
+
+Doclaynet core dataset should be like
+```
+├── COCO
+│   ├── test.json
+│   ├── train.json
+│   └── val.json
+├── PNG
+│   ├── <hash>.png
+│   ├── ...
+├── PDF
+│   ├── <hash>.pdf
+│   ├── ...
+├── JSON
+│   ├── <hash>.json
+│   ├── ...
+
+```
+2. Pre-process the dataset with the `scripts/preprocess_data/test_convert_DocLayNet2Graph`
+3. After processing, you can find a `DocLayNet_core_graph_labels` folder under your specified output dir
+4. Make sure to edit the `config/train_layout_graph_doclaynet.yaml` 
+```yaml
+datasets:
+  train:
+    dataset:
+      data_root:
+        - /your/path/to/DocLayNet_core
+      label_root:
+        - /your/path/to/DocLayNet_core_graph_labels/train
+    collate_fn:
+      aug_flag: false
+  eval:
+    dataset:
+      data_root:
+        - /your/path/to/DocLayNet_core
+      label_root:
+        - /your/path/to/DocLayNet_core_graph_labels/val
+```
+For preprocessing other datasets, you can find scripts under `scripts/preprocess_data/test_convert_Funsd2Graph` and `scripts/preprocess_data/test_convert_Publaynet2Graph` for [FUNSD](https://guillaumejaume.github.io/FUNSD/) and [Publaynet](https://github.com/ibm-aur-nlp/PubLayNet) respectively.
 
 ### 3. Start training
 You can start the training from ```train/train_experiment.py``` or

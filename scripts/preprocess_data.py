@@ -3,55 +3,21 @@
 # author:weishu
 # datetime:2022/11/1 10:29 上午
 # software: PyCharm
-import argparse
 import copy
-import glob
 import json
-import math
-import re
-
-import requests
 import os
-import xml.etree.ElementTree as ET
-from collections import Counter
-import os
-import shutil
-import json
-import unittest
 import random
-import numpy as np
-import time
-import cv2
 import sys
+import unittest
 
-from PIL.Image import Image
-from tqdm import tqdm
-
-from networks.graph_net.graph_net import _get_nearest_pair_knn, _get_nearest_pair_custom, \
-    _get_nearest_pair_beta_skeleton
+import cv2
+import numpy as np
 
 PROJECT_ROOT_PATH = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.append(PROJECT_ROOT_PATH)
 
-
-# from base.common_util import get_file_path_list
-def get_file_path_list(path, ext=None):
-    if not path.startswith('/'):
-        path = os.path.join(PROJECT_ROOT_PATH, path)
-    # print(path)
-    assert os.path.exists(path), 'path not exist {}'.format(path)
-    assert ext is not None, 'ext is None'
-    if os.path.isfile(path):
-        return [path]
-    file_path_list = []
-    for root, _, files in os.walk(path):
-        for file in files:
-            try:
-                if file.rsplit('.')[-1].lower() in ext:
-                    file_path_list.append(os.path.join(root, file))
-            except Exception as e:
-                pass
-    return file_path_list
+from tqdm import tqdm
+from scripts.utils import get_file_path_list, sort_point, get_iou, get_ocr_data_from_pdf
 
 
 class TestGenerator(unittest.TestCase):
@@ -68,13 +34,17 @@ class TestGenerator(unittest.TestCase):
                                  [255, 255, 0], [0, 0, 120], [0, 120, 0], [120, 0, 0], [120, 120, 0], [0, 120, 120],
                                  [120, 0, 120]]
 
-    def test_convert_DocLayNet_2_graph(self):
-        debug_dir = '/dataset_ws1/dataset/layout/DocLayNet_core_debug'
-        ocr_dir = '/open-dataset/OD-layout/DocLayNet_core/ocr_results'
-        image_dir = '/open-dataset/OD-layout/DocLayNet_core/images'
-        out_dir = '/open-dataset/OD-layout/DocLayNet_core_graph_labels'
-        log_file = open('/dataset_ws1/dataset/layout/error_DocLayNet_core.txt', 'a+')
-        label_dir = '/open-dataset/OD-layout/DocLayNet_core/COCO/'
+    def test_convert_DocLayNet2Graph(self):
+        # specify the PNG/COCO/JSON dir
+        image_dir = '/your/path/to/DocLayNet_core/PNG'
+        label_dir = '/your/path/to/DocLayNet_core/COCO'
+        ocr_dir = '/your/path/to/DocLayNet_core/JSON'
+
+        # output config
+        debug_dir = '/path/to/debug/dir'
+        out_dir = '/your/output/path/DocLayNet_core_graph_labels'
+        log_file = open('/your/debug/dir/error_DocLayNet_core.txt', 'a+')
+
         label_path_list = get_file_path_list(label_dir, ['json'])
         for label_path in label_path_list:
             with open(label_path) as f:
@@ -108,7 +78,7 @@ class TestGenerator(unittest.TestCase):
                         iou_list = []
                         ocr_bbox = [
                             ocr_data['bbox'][0], ocr_data['bbox'][1], ocr_data['bbox'][0] + ocr_data['bbox'][2],
-                            ocr_data['bbox'][1] + ocr_data['bbox'][3]
+                                                                      ocr_data['bbox'][1] + ocr_data['bbox'][3]
                         ]
                         for i, label_data in enumerate(label_list):
                             if label_data['bbox'][2] <= 0 or label_data['bbox'][3] <= 0:
@@ -172,12 +142,12 @@ class TestGenerator(unittest.TestCase):
                             'img_data_list': result_data,
                             'doc_category': image_data['doc_category']
                         },
-                                  f,
-                                  ensure_ascii=False,
-                                  indent=2)
+                            f,
+                            ensure_ascii=False,
+                            indent=2)
         log_file.close()
 
-    def test_convert_FUNSD_2_graph(self):
+    def test_convert_Funsd2Graph(self):
         from functools import cmp_to_key
 
         def cmp_text_chunk(item1, item2):
@@ -186,15 +156,17 @@ class TestGenerator(unittest.TestCase):
             return sort_point(bbox1, bbox2)
 
         input_dir = '/open-dataset/OD-layout/FUNSD'
+
         output_dir_word = '/open-dataset/OD-layout/FUNSD_word_graph_labels'
         output_dir_entity = '/open-dataset/OD-layout/FUNSD_entity_graph_labels'
+
         img_path_list = get_file_path_list(os.path.join(input_dir), ['jpg', 'png', 'jpeg'])
         for img_path in tqdm(img_path_list):
             out_path_word = img_path.replace(input_dir, output_dir_word).replace('/images/', '/graph_labels/').replace(
                 '.jpg', '.json').replace('.jpeg', '.json').replace('.png', '.json')
             out_path_entity = img_path.replace(input_dir,
                                                output_dir_entity).replace('/images/', '/graph_labels/').replace(
-                                                   '.jpg', '.json').replace('.jpeg', '.json').replace('.png', '.json')
+                '.jpg', '.json').replace('.jpeg', '.json').replace('.png', '.json')
             if not os.path.exists(out_path_word) or not os.path.exists(out_path_entity):
                 print(img_path)
                 os.makedirs(os.path.dirname(out_path_word), exist_ok=True)
@@ -235,7 +207,7 @@ class TestGenerator(unittest.TestCase):
                 with open(out_path_entity, "w", encoding='utf-8') as f:
                     json.dump({'img_data_list': result_data_entity}, f, ensure_ascii=False, indent=2)
 
-    def test_convert_Publaynet_2_graph(self):
+    def test_convert_Publaynet2Graph(self):
         from functools import cmp_to_key
 
         def cmp_text_chunk(item1, item2):
@@ -244,6 +216,7 @@ class TestGenerator(unittest.TestCase):
             return sort_point(bbox1, bbox2)
 
         input_dir = '/open-dataset/OD-layout/publaynet'
+
         debug_dir = '/dataset_ws1/dataset/layout/publaynet_debug'
         output_dir_word = '/open-dataset/OD-layout/publaynet_word_graph_labels'
         output_dir_entity = '/open-dataset/OD-layout/publaynet_entity_graph_labels'
@@ -403,7 +376,7 @@ class TestGenerator(unittest.TestCase):
                         log_string = 'fail to write:{}\n'.format(img_path)
                         log_file.write(log_string)
 
-    def test_convert_graphlabels_2_coco(self):
+    def test_convert_graphlabels2Coco(self):
         DATA_DIR = '/open-dataset/OD-layout/publaynet_entity_graph_labels/val'
         coco_path = '/open-dataset/OD-layout/publaynet_entity_graph_labels/val.json'
         label_list = self.publaynet_label_list
@@ -458,112 +431,3 @@ class TestGenerator(unittest.TestCase):
             image_id += 1
         with open(coco_path, "w", encoding='utf-8') as f:
             json.dump(coco_data, f, ensure_ascii=False, indent=2)
-
-
-def get_ocr_data_from_pdf(pdf_path):
-    assert os.path.getsize(pdf_path) != 0, 'error'
-    import fitz
-    doc = fitz.Document(pdf_path)
-    page = doc.load_page(0)
-    text_block_list = page.getText(option='dict')['blocks']
-    words_list = page.getText(option='words')
-    return text_block_list, words_list
-
-
-def sort_point(points1, points2):
-    x10 = np.min(points1[:, 0])
-    x11 = np.max(points1[:, 0])
-    y10 = np.min(points1[:, 1])
-    y11 = np.max(points1[:, 1])
-
-    x20 = np.min(points2[:, 0])
-    x21 = np.max(points2[:, 0])
-    y20 = np.min(points2[:, 1])
-    y21 = np.max(points2[:, 1])
-
-    if y11 <= y20:
-        return 1
-    elif y21 <= y10:
-        return -1
-    y_com = min(y11, y21) - max(y10, y20)
-    min_h = min(y11 - y10, y21 - y20)
-    if y_com / min_h >= 0.5:
-        # the same line
-        if (x10 + x11) < (x20 + x21):
-            return 1
-        elif (x10 + x11) > (x20 + x21):
-            return -1
-        else:
-            return 0
-    else:
-        if x11 <= x20 or x21 <= x10:
-            if (y10 + y11) < (y20 + y21):
-                return 1
-            elif (y10 + y11) > (y20 + y21):
-                return -1
-            else:
-                return 0
-        x_com = min(x20, x21) - max(x10, x20)
-        min_w = min(x11 - x10, x21 - x20)
-        if x_com / min_w >= 0.2 and y_com / min_h >= 0.2:
-            # the same line
-            if (x10 + x11) < (x20 + x21):
-                return 1
-            elif (x10 + x11) > (x20 + x21):
-                return -1
-            else:
-                return 0
-        else:
-            # not the same line
-            if (y10 + y11) < (y20 + y21):
-                return 1
-            elif (y10 + y11) > (y20 + y21):
-                return -1
-            else:
-                return 0
-
-
-def get_iou(bb1, bb2):
-    assert bb1[0] < bb1[2]
-    assert bb1[1] < bb1[3]
-    assert bb2[0] < bb2[2]
-    assert bb2[1] < bb2[3]
-
-    # determine the coordinates of the intersection rectangle
-    x_left = max(bb1[0], bb2[0])
-    y_top = max(bb1[1], bb2[1])
-    x_right = min(bb1[2], bb2[2])
-    y_bottom = min(bb1[3], bb2[3])
-
-    if x_right < x_left or y_bottom < y_top:
-        return 0.0
-
-    # The intersection of two axis-aligned bounding boxes is always an
-    # axis-aligned bounding box
-    intersection_area = (x_right - x_left) * (y_bottom - y_top)
-
-    # compute the area of both AABBs
-    bb1_area = (bb1[2] - bb1[0]) * (bb1[3] - bb1[1])
-    bb2_area = (bb2[2] - bb2[0]) * (bb2[3] - bb2[1])
-
-    # compute the intersection over union by taking the intersection
-    # area and dividing it by the sum of prediction + ground-truth
-    # areas - the interesection area
-    iou = intersection_area / float(bb1_area)
-    assert iou >= 0.0
-    assert iou <= 1.0
-    return iou
-
-
-def rotate(image, angle):
-    h, w = image.shape[:2]
-    rad = np.pi / 180 * angle
-    center = ((w - 1) // 2, (h - 1) // 2)
-    h_new = int(math.ceil(abs(h * math.cos(rad)) + abs(w * math.sin(rad))))
-    w_new = int(math.ceil(abs(w * math.cos(rad)) + abs(h * math.sin(rad))))
-    rotate_matrix = cv2.getRotationMatrix2D(center, angle=angle, scale=1)
-    rotate_matrix[0, 2] += w // 2 + (w_new // 2 - w)
-    rotate_matrix[1, 2] += h // 2 + (h_new // 2 - h)
-    transform_matrix = rotate_matrix
-    dst_size = (w_new, h_new)
-    return cv2.warpAffine(image, transform_matrix, dst_size, flags=cv2.INTER_AREA, borderMode=cv2.BORDER_REPLICATE)
