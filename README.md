@@ -68,7 +68,7 @@ For preprocessing other datasets, you can find scripts under `scripts/preprocess
 You can start the training from ```train/train_experiment.py``` or
 
 ```shell
-python train/train_experiment.py --config_file config/xxxx.yaml # you can use your own config file
+python train/train_experiment.py --config_file config/xxxx.yaml --phase train # you can use your own config file
 ```
 The training script also support ddp with huggingface/accelerate by
 
@@ -76,6 +76,36 @@ The training script also support ddp with huggingface/accelerate by
 accelerate train/train_experiment.py --config_file config/base.yaml --use_accelerate True
 ```
 
+### 4. Inference
+After training, you can set `phase` to `predict` in `train/train_experiment.py` and specify the path to your trained model in the config file, such as :
+```yaml
+model:
+  model_path: # put the path to your models here
+
+```
+### About config files
+config file can specify which yaml it wants to override, such as
+```yaml
+base: config/graph_net/train_layout_graph_doclaynet.yaml
+```
+Take `config/graph_net/train_layout_graph.yaml` as an example, the hierarchical override line appears as follows:
+
+```
+base.yaml
+
+   ⬇️  overrided by
+   
+graph_net/base.yaml
+
+   ⬇️  overrided by
+   
+config/graph_net/train_layout_graph.yaml
+
+   ⬇️  overrided by
+   
+config/graph_net/train_layout_graph_doclaynet.yaml
+
+```
 
 
 If you find our work helpful, please consider citing our work and leaving us a star.

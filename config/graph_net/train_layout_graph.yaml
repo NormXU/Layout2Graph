@@ -1,5 +1,5 @@
 model:
-  model_path:
+  model_path: # put the path to your models here
   type: GraphLayoutNet
   class_list: ['Text', 'Title', 'Figure', 'Table', 'List', 'Header', 'Footer']
   class_map: {}

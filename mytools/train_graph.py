@@ -22,7 +22,6 @@ def init_args():
         default='config/graph_net/train_layout_graph_doclaynet.yaml',
         # default='config/graph_net/train_layout_graph_publaynet.yaml',
         # default='config/graph_net/train_layout_graph_funsd.yaml',
-        # default='config/graph_net/train_layout_graph_funsd_entity.yaml',
         type=str,
     )
     parser.add_argument(
