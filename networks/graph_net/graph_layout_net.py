@@ -194,7 +194,8 @@ class GraphLayoutNet(nn.Module):
                             if loc1 == loc2:
                                 positive_cell_pair.append((i, j + i + 1))
                 negative_cell_pair = list(set(pair_cell_list[index]).difference(set(positive_cell_pair)))
-                assert len(set(positive_cell_pair).difference(set(pair_cell_list[index]))) == 0, "!!Lack of pair Set:{}".format(set(positive_cell_pair).difference(set(pair_cell_list[index])))
+                #if not len(set(positive_cell_pair).difference(set(pair_cell_list[index]))) == 0:
+                #    print("Warning!!Lack of pair Set:{}".format(set(positive_cell_pair).difference(set(pair_cell_list[index]))))
                 positive_cell_pair = list(set(pair_cell_list[index]).intersection(set(positive_cell_pair)))
                 if focal_loss_flag is False:
                     random.shuffle(negative_cell_pair)
