@@ -1,16 +1,16 @@
 anyconfig
+accelerate
+Jinja2==3.0.3
 natsort
 munch
+ninja
 packaging
+protobuf==3.20.0
 pyyaml
-Jinja2==3.0.3
-Werkzeug==2.0.3
 setuptools==59.5.0
 setproctitle
-accelerate
-packaging
-ninja
 tensorboard
-protobuf==3.20.0
+transformers
 torch-geometric
+Werkzeug==2.0.3
 -r requirements/requirements-dependency-2.0.1.txt
