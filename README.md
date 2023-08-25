@@ -68,19 +68,19 @@ datasets:
 For preprocessing other datasets, you can find scripts under `scripts/preprocess_data/test_convert_Funsd2Graph` and `scripts/preprocess_data/test_convert_Publaynet2Graph` for [FUNSD](https://guillaumejaume.github.io/FUNSD/) and [Publaynet](https://github.com/ibm-aur-nlp/PubLayNet) respectively.
 
 ### 3. Start training
-You can start the training from ```train/train_graph.py``` or
+You can start the training from ```mytools/train_graph.py``` or
 
 ```shell
-python train/train_graph.py --config_file config/xxxx.yaml --phase train # you can use your own config file
+python mytools/train_graph.py --config_file config/xxxx.yaml --phase train # you can use your own config file
 ```
 The training script also support ddp with huggingface/accelerate by
 
 ```shell
-accelerate train/train_graph.py --config_file config/base.yaml --use_accelerate True
+accelerate mytools/train_graph.py --config_file config/base.yaml --use_accelerate True
 ```
 
 ### 4. Inference
-After training, you can set `phase` to `predict` in `train/train_graph.py` and specify the path to your trained model in the config file, such as :
+After training, you can set `phase` to `predict` in `mytools/train_graph.py` and specify the path to your trained model in the config file, such as :
 ```yaml
 model:
   model_path: # put the path to your models here
