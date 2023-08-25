@@ -43,6 +43,9 @@ Doclaynet core dataset should be like
 
 ```
 2. Pre-process the dataset with the `scripts/preprocess_data/test_convert_DocLayNet2Graph`
+    ```shell
+    python mytools/preprocess_to_graph.py --dataset doclaynet # you can change to publaynet or funsd
+    ```
 3. After processing, you can find a `DocLayNet_core_graph_labels` folder under your specified output dir
 4. Make sure to edit the `config/train_layout_graph_doclaynet.yaml` 
 ```yaml
