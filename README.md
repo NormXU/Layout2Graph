@@ -111,13 +111,13 @@ config/graph_net/train_layout_graph_doclaynet.yaml
 ```
 
 ## Q & A
-**Q:** how do I set hyper-parameters (1.node_weights 2.edge_weight) in config file?
+> **Q:** how do I set hyper-parameters (1.node_weights 2.edge_weight) in config file?
 
 **A:** The weight of the node needs to be carefully adjusted to obtain a desirable outcome. Empirically, classes with fewer samples should be given a higher weight, and vice versa. If you are working with Doclaynet, FUNSD or PubLaynet, you can use our hyper-parameters as we set in ``config/graph_net``. If you want to train it with your own dataset,  a good choice is to use batch-wise dynamic edge weight: For example, in one batch, you have 2 negative edges and 1 position edge, in order to avoid the negative edges dominating the loss, the negative edge weight can be $1/(2+1)$ and positive edge weight is set to $2/(2+1)$
 
 
 
-**Q:** What is the difference between ``GraphLayoutDataset`` and ``GraphLayoutEntityDataset`` in ``mydatasets/gragh_net/layout_dataset.py``, and between ``GraphCollateFn`` and ``GraphEntityCollateFn `` in ``mydatasets/gragh_net/graph_collate.py``, which one should I choose for my use case?
+> **Q:** What is the difference between ``GraphLayoutDataset`` and ``GraphLayoutEntityDataset`` in ``mydatasets/gragh_net/layout_dataset.py``, and between ``GraphCollateFn`` and ``GraphEntityCollateFn `` in ``mydatasets/gragh_net/graph_collate.py``, which one should I choose for my use case?
 
 **A:** 
 
