@@ -65,7 +65,7 @@ datasets:
       label_root:
         - /your/path/to/DocLayNet_core_graph_labels/val
 ```
-For preprocessing other datasets, you can find scripts under `scripts/preprocess_data/test_convert_Funsd2Graph` and `scripts/preprocess_data/test_convert_Publaynet2Graph` for [FUNSD](https://guillaumejaume.github.io/FUNSD/) and [Publaynet](https://github.com/ibm-aur-nlp/PubLayNet) respectively.
+For preprocessing other datasets, you can find scripts under `scripts/preprocess_data/test_convert_Funsd2Graph` and `scripts/preprocess_data/test_convert_Publaynet2Graph` for [FUNSD](https://guillaumejaume.github.io/FUNSD/) and [Publaynet](https://github.com/ibm-aur-nlp/PubLayNet), respectively. The evaluation/prediction process assumes that all datasets adhere to [this](https://github.com/DS4SD/DocLayNet#extra-json-files) format. Please ensure to preprocess your custom dataset to conform to this format before proceeding with evaluation.
 
 ### 3. Start training
 You can start the training from ```mytools/train_graph.py``` or
@@ -110,8 +110,16 @@ config/graph_net/train_layout_graph_doclaynet.yaml
 
 ```
 
+## Q & A
+**Q:** how do I set hyper-parameters (1.node_weights 2.edge_weight) in config file?
+**A:** The weight of the node needs to be carefully adjusted to obtain a desirable outcome. Empirically, classes with fewer samples should be given a higher weight, and vice versa. If you are working with Doclaynet, FUNSD or PubLaynet, you can use our hyper-parameters as we set in ``config/graph_net``. If you want to train it with your own dataset,  a good choice is to use batch-wise dynamic edge weight: For example, in one batch, you have 2 negative edges and 1 position edge, in order to avoid the negative edges dominating the loss, the negative edge weight can be $1/(2+1)$ and positive edge weight is set to $2/(2+1)$
 
-If you find our work helpful, please consider citing our work and leaving us a star.
+
+
+## Citation
+
+f you find our work helpful, please consider citing our work and leaving us a star.
+
 ```
 @article{wei2023paragraph2graph,
   title={PARAGRAPH2GRAPH: A GNN-based framework for layout paragraph analysis},
