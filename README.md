@@ -116,6 +116,33 @@ config/graph_net/train_layout_graph_doclaynet.yaml
 
 
 
+**Q:** What is the difference between ``GraphLayoutDataset`` and ``GraphLayoutEntityDataset`` in ``mydatasets/gragh_net/layout_dataset.py``, and between ``GraphCollateFn`` and ``GraphEntityCollateFn `` in ``mydatasets/gragh_net/graph_collate.py``, which one should I choose for my use case?
+
+**A:** 
+
+- For entity-node:
+
+```yaml
+datasets:
+  train:
+    dataset:
+      type: GraphLayoutDataset
+    collate_fn:
+      type: GraphCollateFn
+
+```
+- For entity-linking
+```yaml
+datasets:
+  train:
+    dataset:
+      type: GraphLayoutEntityDataset
+    collate_fn:
+      type: GraphEntityCollateFn
+```
+
+please check this [issue](https://github.com/NormXU/Layout2Graph/issues/11#issuecomment-1762741258) for more details. Ensure to change the dataset type and collect_fn type in your config file for your use case.
+
 ## Citation
 
 f you find our work helpful, please consider citing our work and leaving us a star.

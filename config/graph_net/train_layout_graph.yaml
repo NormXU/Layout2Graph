@@ -41,7 +41,8 @@ trainer:
 datasets:
   train:
     dataset:
-      type: GraphLayoutDataset
+      type: GraphLayoutDataset  # for node classification task
+      # type: GraphLayoutEntityDataset  # for entity-linking task
       crop_img_flag: false
       data_root:
         - /open-dataset/OD-layout/DocLayNet_core
@@ -50,7 +51,8 @@ datasets:
     num_workers: 0
     batch_size: 2
     collate_fn:
-      type: GraphCollateFn
+      type: GraphCollateFn  # for node classification task
+      # type: GraphEntityCollateFn  # for entity-linking task
       aug_flag: true
       cut_percent: 0.2 #需要cut的框的百分比
       cut_ratio: 0.2 #cut的比例
